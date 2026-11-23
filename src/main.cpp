@@ -1,6 +1,9 @@
 #include "game_logic.h"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#if RPG_HAS_SDL3_IMAGE
+#include <SDL3_image/SDL_image.h>
+#endif
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -56,6 +59,7 @@ struct ArtAssets {
     SDL_Texture* father=nullptr;
     SDL_Texture* mother=nullptr;
     SDL_Texture* lily=nullptr;
+    std::array<SDL_Texture*,36> familyFrames{};
 };
 SDL_Texture* loadArt(SDL_Renderer* renderer,const char* filename){
     namespace fs=std::filesystem;
@@ -66,9 +70,14 @@ SDL_Texture* loadArt(SDL_Renderer* renderer,const char* filename){
     };
     for(const auto& path:paths){
         if(!fs::exists(path)) continue;
-        SDL_Surface* surface=SDL_LoadBMP(path.string().c_str());
+        SDL_Surface* surface=nullptr;
+#if RPG_HAS_SDL3_IMAGE
+        surface=IMG_Load(path.string().c_str());
+#else
+        surface=SDL_LoadBMP(path.string().c_str());
+#endif
         if(!surface){
-            std::cerr<<"Cannot load BMP "<<path.string()<<": "<<SDL_GetError()<<"\n";
+            std::cerr<<"Cannot load image "<<path.string()<<": "<<SDL_GetError()<<"\n";
             continue;
         }
         SDL_Texture* texture=SDL_CreateTextureFromSurface(renderer,surface);
@@ -80,15 +89,80 @@ SDL_Texture* loadArt(SDL_Renderer* renderer,const char* filename){
     }
     return nullptr;
 }
+
+// Extract the 3 relatives' four facing directions (3 frames each) from family.png.
+// The supplied sheet is a labeled concept sheet rather than a transparent atlas,
+// so the dark sheet background is removed during one-time loading.
+void loadFamilyFrames(SDL_Renderer* r,ArtAssets& art){
+#if RPG_HAS_SDL3_IMAGE
+    namespace fs=std::filesystem;
+    fs::path sheetPath;
+    for(const fs::path& candidate:{
+            fs::path("assets/family.png"),fs::path("../assets/family.png"),
+            fs::path("../../assets/family.png")}){
+        if(fs::exists(candidate)){sheetPath=candidate;break;}
+    }
+    if(sheetPath.empty())return;
+    SDL_Surface* sheet=IMG_Load(sheetPath.string().c_str());
+    if(!sheet){std::cerr<<"Family sprite sheet load failed: "<<SDL_GetError()<<"\n";return;}
+    constexpr int FRAME_WIDTH=57, FRAME_HEIGHT=108;
+    constexpr int centers[4][3]={
+        {429,492,554},  // down
+        {632,693,756},  // left
+        {835,895,955},  // right
+        {1034,1097,1158} // up
+    };
+    constexpr int tops[3]={268,515,765}; // father, mother, Lily
+    for(int who=0;who<3;who++)for(int dir=0;dir<4;dir++)for(int frame=0;frame<3;frame++){
+        SDL_Surface* cropped=SDL_CreateSurface(FRAME_WIDTH,FRAME_HEIGHT,SDL_PIXELFORMAT_RGBA32);
+        if(!cropped)continue;
+        SDL_Rect src{centers[dir][frame]-FRAME_WIDTH/2,tops[who],FRAME_WIDTH,FRAME_HEIGHT};
+        if(SDL_BlitSurface(sheet,&src,cropped,nullptr)){
+            for(int y=0;y<FRAME_HEIGHT;y++)for(int x=0;x<FRAME_WIDTH;x++){
+                Uint8 red=0,green=0,blue=0,alpha=255;
+                if(!SDL_ReadSurfacePixel(cropped,x,y,&red,&green,&blue,&alpha))continue;
+                const int hi=std::max({int(red),int(green),int(blue)});
+                const int lo=std::min({int(red),int(green),int(blue)});
+                // Preserve colored outfits while keying out the near-charcoal sheet.
+                if(hi<62 && hi-lo<24)
+                    SDL_WriteSurfacePixel(cropped,x,y,0,0,0,0);
+            }
+            SDL_Texture* frameTexture=SDL_CreateTextureFromSurface(r,cropped);
+            if(frameTexture){
+                SDL_SetTextureScaleMode(frameTexture,SDL_SCALEMODE_NEAREST);
+                SDL_SetTextureBlendMode(frameTexture,SDL_BLENDMODE_BLEND);
+            }
+            art.familyFrames[(who*4+dir)*3+frame]=frameTexture;
+        }
+        SDL_DestroySurface(cropped);
+    }
+    SDL_DestroySurface(sheet);
+#else
+    (void)r;(void)art;
+#endif
+}
+void drawFamilySprite(SDL_Renderer* r,const ArtAssets& art,int person,
+                      int x,int y,int direction,int frame){
+    const int idx=(person*4+direction)*3+frame;
+    SDL_Texture* texture=art.familyFrames[idx];
+    if(!texture)return;
+    // PNG sheet proportions: scale frames down for the 960x640 world.
+    SDL_FRect destination{float(x-20),float(y-53),40.f,65.f};
+    SDL_RenderTexture(r,texture,nullptr,&destination);
+}
 ArtAssets loadArtAssets(SDL_Renderer* renderer){
     ArtAssets result;
-    result.home=loadArt(renderer,"home.bmp");
+#if RPG_HAS_SDL3_IMAGE
+    result.home=loadArt(renderer,"home.png");
+#endif
+    if(!result.home)result.home=loadArt(renderer,"home.bmp");
     result.village=loadArt(renderer,"village.bmp");
     result.outskirts=loadArt(renderer,"outskirts.bmp");
     result.hero=loadArt(renderer,"hero.bmp");
     result.father=loadArt(renderer,"father.bmp");
     result.mother=loadArt(renderer,"mother.bmp");
     result.lily=loadArt(renderer,"lily.bmp");
+    loadFamilyFrames(renderer,result);
     if(!result.home||!result.village||!result.outskirts)
         std::cerr<<"AI art missing: extract art pack so assets/*.bmp exists. Using fallback visuals.\n";
     return result;
@@ -100,6 +174,8 @@ void drawBackground(SDL_Renderer* r,SDL_Texture* art){
 void destroyArtAssets(ArtAssets& art){
     for(SDL_Texture* t:{art.home,art.village,art.outskirts,
                        art.hero,art.father,art.mother,art.lily})
+        if(t)SDL_DestroyTexture(t);
+    for(SDL_Texture* t:art.familyFrames)
         if(t)SDL_DestroyTexture(t);
 }
 void color(SDL_Renderer* r,Uint8 red,Uint8 green,Uint8 blue,Uint8 alpha=255){
@@ -728,7 +804,16 @@ int main(int argc,char** argv){
         if(world.scene==Scene::HOME){
             if(art.home)drawBackground(renderer,art.home);
             else drawCottage(renderer,world.time);
-            for(const auto& c:FAMILY)drawPerson(renderer,c);
+            for(int i=0;i<int(FAMILY.size());++i){
+                const auto& c=FAMILY[size_t(i)];
+                // FAMILY order: mother, father, Lily; atlas order: father, mother, Lily.
+                const int sheetPerson=i==0?1:(i==1?0:2);
+                const bool talking=world.speaker==c.name && !world.dialogue.empty();
+                const int frame=talking?int(world.time*3)%3:1;
+                if(art.familyFrames[(sheetPerson*4)*3+frame])
+                    drawFamilySprite(renderer,art,sheetPerson,int(c.p.x),int(c.p.y),0,frame);
+                else drawPerson(renderer,c);
+            }
         }else if(world.scene==Scene::VILLAGE){
             if(art.village)drawBackground(renderer,art.village);
             else drawMap(renderer,world.time);
