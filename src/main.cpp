@@ -1,9 +1,6 @@
 #include "game_logic.h"
-#if __has_include(<SDL2/SDL.h>)
-#include <SDL2/SDL.h>
-#else
-#include <SDL.h>
-#endif
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -46,14 +43,14 @@ void color(SDL_Renderer* r,Uint8 red,Uint8 green,Uint8 blue,Uint8 alpha=255){
 }
 void rect(SDL_Renderer* r,int x,int y,int w,int h,Uint8 red,Uint8 green,Uint8 blue){
     color(r,red,green,blue);
-    SDL_Rect q{x,y,w,h}; SDL_RenderFillRect(r,&q);
+    SDL_FRect q{float(x),float(y),float(w),float(h)}; SDL_RenderFillRect(r,&q);
 }
 void outline(SDL_Renderer* r,int x,int y,int w,int h,Uint8 red,Uint8 green,Uint8 blue){
     color(r,red,green,blue);
-    SDL_Rect q{x,y,w,h}; SDL_RenderDrawRect(r,&q);
+    SDL_FRect q{float(x),float(y),float(w),float(h)}; SDL_RenderRect(r,&q);
 }
 void line(SDL_Renderer* r,int x1,int y1,int x2,int y2,Uint8 red,Uint8 green,Uint8 blue){
-    color(r,red,green,blue); SDL_RenderDrawLine(r,x1,y1,x2,y2);
+    color(r,red,green,blue); SDL_RenderLine(r,float(x1),float(y1),float(x2),float(y2));
 }
 uint32_t noise(int x,int y,int salt=0){
     uint32_t n=static_cast<uint32_t>(x*9781+y*6271+salt*3109);
@@ -219,7 +216,7 @@ void drawKnight(SDL_Renderer* r,Vec2 p,Vec2 facing,float slash,bool hurt){
         for(int i=-2;i<=2;i++){
             int ax=x+static_cast<int>(facing.x*42-facing.y*i*9);
             int ay=y+static_cast<int>(facing.y*42+facing.x*i*9);
-            SDL_RenderDrawPoint(r,ax,ay);
+            SDL_RenderPoint(r,float(ax),float(ay));
             rect(r,ax-2,ay-2,4,4,244,213,132);
         }
     }
@@ -281,13 +278,13 @@ void attack(World& w){
     }
     if(w.hero.kills>=8)w.won=true;
 }
-void update(World& w,const Uint8* keys,float dt){
+void update(World& w,const bool* keys,float dt){
     if(w.won||w.lost) return;
     w.time+=dt;
     w.hero.slashTimer=std::max(0.f,w.hero.slashTimer-dt);
     w.hero.hurtTimer=std::max(0.f,w.hero.hurtTimer-dt);
-    Vec2 input{static_cast<float>(keys[SDL_SCANCODE_D]-keys[SDL_SCANCODE_A]),
-               static_cast<float>(keys[SDL_SCANCODE_S]-keys[SDL_SCANCODE_W])};
+    Vec2 input{static_cast<float>(int(keys[SDL_SCANCODE_D])-int(keys[SDL_SCANCODE_A])),
+               static_cast<float>(int(keys[SDL_SCANCODE_S])-int(keys[SDL_SCANCODE_W]))};
     auto dir=normalized(input);
     if(dir.x!=0 || dir.y!=0){
         w.hero.facing=dir;
@@ -316,7 +313,7 @@ void drawOverlay(SDL_Renderer* r,const World& w){
     if(!w.won&&!w.lost)return;
     SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_BLEND);
     color(r,10,18,24,210);
-    SDL_Rect full{0,0,WIDTH,HEIGHT};SDL_RenderFillRect(r,&full);
+    SDL_FRect full{0,0,float(WIDTH),float(HEIGHT)};SDL_RenderFillRect(r,&full);
     SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_NONE);
     rect(r,WIDTH/2-290,HEIGHT/2-108,580,215,30,39,44);
     outline(r,WIDTH/2-290,HEIGHT/2-108,580,215,197,165,105);
@@ -328,31 +325,29 @@ void drawOverlay(SDL_Renderer* r,const World& w){
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER)!=0){
+    if(!SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER)){
         std::cerr<<"SDL_Init failed: "<<SDL_GetError()<<"\n";return 1;
     }
-    SDL_Window* window=SDL_CreateWindow("Medieval RPG - The Ashvale Trial",
-        SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,WIDTH*SCALE,HEIGHT*SCALE,
-        SDL_WINDOW_SHOWN);
+    SDL_Window* window=SDL_CreateWindow("Medieval RPG - The Ashvale Trial",WIDTH*SCALE,HEIGHT*SCALE,0);
     if(!window){std::cerr<<SDL_GetError()<<"\n";SDL_Quit();return 1;}
-    SDL_Renderer* renderer=SDL_CreateRenderer(window,-1,
-        SDL_RENDERER_ACCELERATED|SDL_RENDERER_PRESENTVSYNC);
-    if(!renderer)renderer=SDL_CreateRenderer(window,-1,SDL_RENDERER_SOFTWARE);
+    SDL_Renderer* renderer=SDL_CreateRenderer(window,nullptr);
+    if(!renderer)renderer=SDL_CreateRenderer(window,"software");
     if(!renderer){
         std::cerr<<SDL_GetError()<<"\n";SDL_DestroyWindow(window);SDL_Quit();return 1;
     }
-    SDL_RenderSetLogicalSize(renderer,WIDTH,HEIGHT);
+    SDL_SetRenderLogicalPresentation(renderer,WIDTH,HEIGHT,SDL_LOGICAL_PRESENTATION_LETTERBOX);
+    SDL_SetRenderVSync(renderer,1);
     World world;reset(world);
     bool running=true;
     Uint64 last=SDL_GetPerformanceCounter();
     while(running){
         SDL_Event ev;
         while(SDL_PollEvent(&ev)){
-            if(ev.type==SDL_QUIT)running=false;
-            if(ev.type==SDL_KEYDOWN && ev.key.repeat==0){
-                if(ev.key.keysym.sym==SDLK_ESCAPE)running=false;
-                if(ev.key.keysym.sym==SDLK_r)reset(world);
-                if(ev.key.keysym.sym==SDLK_SPACE)attack(world);
+            if(ev.type==SDL_EVENT_QUIT)running=false;
+            if(ev.type==SDL_EVENT_KEY_DOWN && ev.key.repeat==0){
+                if(ev.key.key==SDLK_ESCAPE)running=false;
+                if(ev.key.key==SDLK_R)reset(world);
+                if(ev.key.key==SDLK_SPACE)attack(world);
             }
         }
         Uint64 now=SDL_GetPerformanceCounter();
