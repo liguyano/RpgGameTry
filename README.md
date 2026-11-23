@@ -5,8 +5,10 @@ A **playable, self-contained medieval fantasy RPG prototype** built with **C++17
 ## Features (v0.1)
 
 - 960 × 640 top-down medieval village, houses, inn, trees, stone well, dirt roads and stream
-- Armored knight controlled with WASD; 8 goblins with basic pursuit AI
-- Directional melee combat and cooldown, enemy health indicators
+- Story-driven opening: wake up in a countryside cottage, speak with family, visit the village, investigate smoke
+- Three scenes with pixel-art-style environments, character NPCs, quest objectives and dialogue panels
+- Armored knight controlled with WASD; later, 8 goblins with basic pursuit AI
+- Quest-gated directional melee combat and cooldown, enemy health indicators
 - Collision against buildings, trees and map bounds
 - Health / kill counter HUD, win / game-over screens, restart
 - Delta-time movement and simple deterministic procedural decoration
@@ -17,11 +19,12 @@ A **playable, self-contained medieval fantasy RPG prototype** built with **C++17
 | Key | Action |
 | --- | --- |
 | WASD | Move |
-| Space | Sword attack (face enemy; attack range ~66px) |
+| E | Talk / interact with NPCs and places |
+| Space | Continue dialogue, or attack after combat begins |
 | R | Restart |
 | Esc | Quit |
 
-Defeat **8 goblins** without losing all your HP to win.
+**Chapter 1:** Speak with Mother, Father and Lily at home, leave the cottage, meet Elder Rowan, the Merchant and the Guard, inspect the east road and the smoke. Combat only begins after investigating the ruins. Defeat **8 goblins** without losing all your HP to win.
 
 ## Build on Windows with your local SDL3 SDK (recommended)
 
