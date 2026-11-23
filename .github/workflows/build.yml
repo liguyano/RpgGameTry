@@ -5,11 +5,14 @@ on:
 jobs:
   windows-mingw:
     runs-on: windows-latest
-    defaults:
-      run:
-        shell: msys2 {0}
     steps:
       - uses: actions/checkout@v4
+      - name: Download official SDL3 3.4.2 MinGW SDK
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/libsdl-org/SDL/releases/download/release-3.4.2/SDL3-devel-3.4.2-mingw.zip" -OutFile "${{ runner.temp }}/sdl3.zip"
+          Expand-Archive -Path "${{ runner.temp }}/sdl3.zip" -DestinationPath "${{ github.workspace }}/SDL3-3.4.2"
+          Get-ChildItem "${{ github.workspace }}/SDL3-3.4.2" | Select-Object Name
       - uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
@@ -18,10 +21,9 @@ jobs:
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
-            mingw-w64-ucrt-x86_64-SDL3
-      - name: Configure
-        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
-      - name: Build
-        run: cmake --build build --parallel
-      - name: Test
-        run: ctest --test-dir build --output-on-failure
+      - name: Configure, build and test
+        shell: msys2 {0}
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build --parallel
+          ctest --test-dir build --output-on-failure
