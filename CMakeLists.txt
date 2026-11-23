@@ -46,6 +46,15 @@ if(WIN32 AND EXISTS "${SDL3_BUNDLED_PREFIX}/bin/SDL3.dll")
         COMMENT "Copying SDL3.dll to game output directory")
 endif()
 
+# Copy optional AI-generated BMP art pack into the build output.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets/home.bmp")
+    add_custom_command(TARGET medieval_rpg POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/assets"
+            "$<TARGET_FILE_DIR:medieval_rpg>/assets"
+        COMMENT "Copying AI-generated scene and portrait assets")
+endif()
+
 if(MSVC)
     target_compile_options(medieval_rpg PRIVATE /W4)
 else()
