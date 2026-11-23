@@ -288,7 +288,7 @@ void update(World& w,const bool* keys,float dt){
     auto dir=normalized(input);
     if(dir.x!=0 || dir.y!=0){
         w.hero.facing=dir;
-        moveBody(w.hero,{dir.x*PLAYER_SPEED,dir.y*PLAYER_SPEED},dt,11);
+        moveBody(w.hero.pos,{dir.x*PLAYER_SPEED,dir.y*PLAYER_SPEED},dt,11);
     }
     for(auto& e:w.enemies){
         if(e.hp<=0)continue;
@@ -297,7 +297,7 @@ void update(World& w,const bool* keys,float dt){
         Vec2 delta{w.hero.pos.x-e.pos.x,w.hero.pos.y-e.pos.y};
         if(withinRange(w.hero.pos,e.pos,360) && !withinRange(w.hero.pos,e.pos,28)){
             auto chase=normalized(delta);
-            moveBody(e,{chase.x*ENEMY_SPEED,chase.y*ENEMY_SPEED},dt,11);
+            moveBody(e.pos,{chase.x*ENEMY_SPEED,chase.y*ENEMY_SPEED},dt,11);
         }
         if(withinRange(w.hero.pos,e.pos,32) && e.attackTimer<=0){
             e.attackTimer=1.15f;
@@ -325,7 +325,7 @@ void drawOverlay(SDL_Renderer* r,const World& w){
 
 int main(int argc,char** argv){
     (void)argc;(void)argv;
-    if(!SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER)){
+    if(!SDL_Init(SDL_INIT_VIDEO)){
         std::cerr<<"SDL_Init failed: "<<SDL_GetError()<<"\n";return 1;
     }
     SDL_Window* window=SDL_CreateWindow("Medieval RPG - The Ashvale Trial",WIDTH*SCALE,HEIGHT*SCALE,0);
