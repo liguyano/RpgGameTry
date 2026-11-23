@@ -2,34 +2,34 @@
 
 A **playable, self-contained medieval fantasy RPG prototype** built with **C++17 + SDL3 + CMake**, compatible with **GCC / MinGW-w64**. The first milestone focuses on a working gameplay loop, rather than external art assets.
 
-## AI-generated artwork
+## AI-generated artwork (home.png + family.png)
 
-The game **loads real image textures** when the AI art pack is installed. Download the separate `RpgGameTry_AI_Art_Pack_v02.zip` attached in the chat, and extract it directly into the project root. The resulting files should be:
+The game now prefers **PNG** when SDL3_image is present. Your two uploaded files are already in the GitHub `assets/` folder:
 
 ```text
 RpgGameTry/
+  SDL3-3.4.2/x86_64-w64-mingw32/
+  SDL3_image-3.4.8/x86_64-w64-mingw32/
   assets/
-    home.bmp
-    village.bmp
-    outskirts.bmp
-    hero.bmp
-    father.bmp
-    mother.bmp
-    lily.bmp
+    home.png             # full cottage background with furniture
+    family.png           # father/mother/Lily idle + 4 directions (3 frames)
+    *.bmp                # legacy backgrounds/portraits used in other scenes
 ```
 
-SDL3 loads these images using `SDL_LoadBMP` and `SDL_CreateTextureFromSurface`. You do **not** need SDL3_image. Scene paintings are extracted from the AI-generated concept sheet. They currently contain some baked-in characters and decorative UI from the image, so this is a **visual prototype**, not a clean seamless tileset. Animated player/NPC figures are still drawn above those backdrops; a dedicated character sprite atlas is a later task.
+At startup SDL3_image loads `home.png` instead of the old `home.bmp`. Family NPCs render using crops from `family.png`, with dark sheet backdrop keyed out at load time. NPCs still follow the same scripted interactions; characters are animated with simple idle/talk frames. The spritesheet includes printed labels and a dark backdrop; the cropping is a prototype, not yet a clean production atlas.
 
-To compile and run in Windows PowerShell:
+**Windows (PowerShell, GCC 64-bit, MinGW Makefiles):**
 
 ```powershell
+cd E:\code\RpgGameTry
 git pull origin main
 cmake -S . -B build -G "MinGW Makefiles"
 cmake --build build -j 4
-.\\build\\medieval_rpg.exe
+ctest --test-dir build --output-on-failure
+.\build\medieval_rpg.exe
 ```
 
-CMake copies `assets` to `build/assets` when they are present during configuration. The renderer also loads from `./assets`, `../assets`, or `../../assets` depending on where it is launched. Without art files the game gracefully uses its former SDL3 procedural graphics. **The image pack is distributed as a separate chat attachment and is not part of GitHub clone/pull.**
+CMake automatically detects both SDL3 and SDL3_image at the above local SDK paths, and copies their DLLs and the `assets/` directory into `build/`. The `SDL3_image-3.4.8/` SDK is local only and must not be committed. Without SDL3_image the game still builds and uses BMP/procedural artwork.
 
 ## Features (v0.2)
 
@@ -41,7 +41,7 @@ CMake copies `assets` to `build/assets` when they are present during configurati
 - Collision against buildings, trees and map bounds
 - Health / kill counter HUD, win / game-over screens, restart
 - Delta-time movement and simple deterministic procedural decoration
-- Pure C++ logic unit tests (CTest); no SDL_ttf or downloadable assets needed
+- Pure C++ logic unit tests (CTest); no SDL_ttf required
 
 ## Controls
 
