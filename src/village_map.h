@@ -18,7 +18,7 @@ inline bool inRect(game::Vec2 p,Rect r,float radius){
     float nearestX=game::clamp(p.x,r.x,r.x+r.w);
     float nearestY=game::clamp(p.y,r.y,r.y+r.h);
     float dx=p.x-nearestX,dy=p.y-nearestY;
-    return dx*dx+dy*dy < radius*radius;
+    return dx*dx+dy*dy <= radius*radius;
 }
 struct Polygon { std::array<game::Vec2,12> points{}; std::size_t count=0; };
 inline bool pointInside(game::Vec2 p,const Polygon& polygon){
