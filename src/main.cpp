@@ -45,6 +45,8 @@ struct World {
     int wave=0;
 };
 
+void showDialogue(World& w,const char* speaker,const char* words);
+
 void color(SDL_Renderer* r,Uint8 red,Uint8 green,Uint8 blue,Uint8 alpha=255){
     SDL_SetRenderDrawColor(r,red,green,blue,alpha);
 }
