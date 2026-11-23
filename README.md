@@ -2,7 +2,36 @@
 
 A **playable, self-contained medieval fantasy RPG prototype** built with **C++17 + SDL3 + CMake**, compatible with **GCC / MinGW-w64**. The first milestone focuses on a working gameplay loop, rather than external art assets.
 
-## Features (v0.1)
+## AI-generated artwork
+
+The game **loads real image textures** when the AI art pack is installed. Download the separate `RpgGameTry_AI_Art_Pack_v02.zip` attached in the chat, and extract it directly into the project root. The resulting files should be:
+
+```text
+RpgGameTry/
+  assets/
+    home.bmp
+    village.bmp
+    outskirts.bmp
+    hero.bmp
+    father.bmp
+    mother.bmp
+    lily.bmp
+```
+
+SDL3 loads these images using `SDL_LoadBMP` and `SDL_CreateTextureFromSurface`. You do **not** need SDL3_image. Scene paintings are extracted from the AI-generated concept sheet. They currently contain some baked-in characters and decorative UI from the image, so this is a **visual prototype**, not a clean seamless tileset. Animated player/NPC figures are still drawn above those backdrops; a dedicated character sprite atlas is a later task.
+
+To compile and run in Windows PowerShell:
+
+```powershell
+git pull origin main
+cmake -S . -B build -G "MinGW Makefiles"
+cmake --build build -j 4
+.\\build\\medieval_rpg.exe
+```
+
+CMake copies `assets` to `build/assets` when they are present during configuration. The renderer also loads from `./assets`, `../assets`, or `../../assets` depending on where it is launched. Without art files the game gracefully uses its former SDL3 procedural graphics. **The image pack is distributed as a separate chat attachment and is not part of GitHub clone/pull.**
+
+## Features (v0.2)
 
 - 960 × 640 top-down medieval village, houses, inn, trees, stone well, dirt roads and stream
 - Story-driven opening: wake up in a countryside cottage, speak with family, visit the village, investigate smoke
