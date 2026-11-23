@@ -23,36 +23,44 @@ A **playable, self-contained medieval fantasy RPG prototype** built with **C++17
 
 Defeat **8 goblins** without losing all your HP to win.
 
-## Build on Windows (MSYS2 MinGW-w64 GCC)
+## Build on Windows with your local SDL3 SDK (recommended)
 
-Open the **MSYS2 UCRT64** terminal and install dependencies:
+Extract the **SDL3 3.4.2 MinGW development ZIP** into the repository root:
 
-```bash
-pacman -S --needed mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-SDL3
+```text
+RpgGameTry/
+  CMakeLists.txt
+  SDL3-3.4.2/
+    x86_64-w64-mingw32/
+      include/SDL3/SDL.h
+      lib/cmake/SDL3/SDL3Config.cmake
+      bin/SDL3.dll
 ```
 
-Then from the project directory:
+The CMake project **automatically detects this SDL3 folder** and copies `SDL3.dll` next to `medieval_rpg.exe`. Do not manually copy DLLs or set `CMAKE_PREFIX_PATH`.
+
+From **PowerShell**, assuming GCC/MinGW-w64 and CMake are already on PATH:
+
+```powershell
+cd E:\code\RpgGameTry
+cmake -S . -B build -G "MinGW Makefiles"
+cmake --build build -j 4
+ctest --test-dir build --output-on-failure
+.\build\medieval_rpg.exe
+```
+
+If you previously configured `build` with another generator or SDK, remove the build folder first: `Remove-Item -Recurse -Force .\build`.
+
+Alternatively, from **MSYS2 UCRT64**, install the GCC, CMake and Ninja packages (SDL3 is already bundled locally):
 
 ```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+pacman -S --needed mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja
+cmake -S . -B build -G Ninja
 cmake --build build
-ctest --test-dir build --output-on-failure
 ./build/medieval_rpg.exe
 ```
 
-Use the same **UCRT64** shell to run the game so SDL3 DLLs are in PATH. If launching the EXE outside MSYS2, ensure SDL3.dll and any required MinGW runtime DLLs are available beside it or on PATH.
-
-## Manual SDL3 MinGW download (Windows)
-
-Download `SDL3-devel-3.4.2-mingw.zip` from the official SDL GitHub release, extract the `x86_64-w64-mingw32` folder and point CMake to it:
-
-```powershell
-cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_PREFIX_PATH="D:/Libraries/SDL3/x86_64-w64-mingw32"
-cmake --build build
-.\\build\\medieval_rpg.exe
-```
-
-Make sure `SDL3.dll` is on PATH or beside the game executable.
+**Important:** Use 64-bit GCC for `x86_64-w64-mingw32`. SDL3 3.4.2 is not committed into Git; keep your existing local SDK folder when pulling.
 
 ## Build on Linux (Debian/Ubuntu)
 
@@ -76,7 +84,7 @@ RpgGameTry/
 ├── tests/
 │   └── game_tests.cpp   # CTest unit tests
 └── .github/workflows/
-    └── build.yml        # Linux GCC CI
+    └── build.yml        # Windows MinGW GCC CI
 ```
 
 ## Roadmap
