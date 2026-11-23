@@ -263,8 +263,7 @@ void drawHud(SDL_Renderer* r,const World& w){
 void reset(World& w){
     w=World{};
     w.hero.pos={480,470};
-    showDialogue(w,"NARRATOR","ASHVALE. A QUIET MORNING.
-THE FIRE IS WARM AND HOME IS SAFE.");
+    showDialogue(w,"NARRATOR","ASHVALE. A QUIET MORNING.\nTHE FIRE IS WARM AND HOME IS SAFE.");
     /* The old encounter is saved until the story reaches the road. */
     w.enemies={
         {{345,271},3,0,0},{{625,277},3,0,1},{{717,427},3,0,2},
