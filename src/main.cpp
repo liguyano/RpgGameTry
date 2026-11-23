@@ -341,7 +341,7 @@ int main(int argc,char** argv){
     if(!renderer){
         std::cerr<<SDL_GetError()<<"\n";SDL_DestroyWindow(window);SDL_Quit();return 1;
     }
-    SDL_SetRenderDrawLogicalSize(renderer,WIDTH,HEIGHT);
+    SDL_RenderSetLogicalSize(renderer,WIDTH,HEIGHT);
     World world;reset(world);
     bool running=true;
     Uint64 last=SDL_GetPerformanceCounter();
