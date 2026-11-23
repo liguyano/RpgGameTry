@@ -29,7 +29,14 @@ struct Player {
     float hurtTimer=0;
     int kills=0;
 };
+enum class Scene { HOME, VILLAGE, OUTSKIRTS };
+
 struct World {
+    Scene scene=Scene::HOME;
+    int story=0;
+    std::string dialogue;
+    std::string speaker;
+    bool justArrived=true;
     Player hero;
     std::vector<Enemy> enemies;
     bool won=false, lost=false;
@@ -253,19 +260,24 @@ void drawHud(SDL_Renderer* r,const World& w){
 }
 void reset(World& w){
     w=World{};
+    w.hero.pos={480,470};
+    showDialogue(w,"NARRATOR","ASHVALE. A QUIET MORNING.
+THE FIRE IS WARM AND HOME IS SAFE.");
+    /* The old encounter is saved until the story reaches the road. */
     w.enemies={
         {{345,271},3,0,0},{{625,277},3,0,1},{{717,427},3,0,2},
         {{305,430},3,0,3},{{787,365},3,0,4},{{140,345},3,0,5},
         {{580,560},3,0,6},{{806,545},3,0,7}
     };
     // Move any accidentally obstructed spawn to the central clearing.
+    w.enemies.clear();
     for(size_t i=0;i<w.enemies.size();++i)
         if(blocked(w.enemies[i].pos,12))
             w.enemies[i].pos={345.f+static_cast<float>(i%4)*72.f,
                                335.f+static_cast<float>(i/4)*62.f};
 }
 void attack(World& w){
-    if(w.won || w.lost || w.hero.slashTimer>0) return;
+    if(w.story<9 || !w.dialogue.empty() || w.won || w.lost || w.hero.slashTimer>0) return;
     w.hero.slashTimer=0.32f;
     for(auto& e:w.enemies){
         Vec2 delta{e.pos.x-w.hero.pos.x,e.pos.y-w.hero.pos.y};
@@ -281,6 +293,7 @@ void attack(World& w){
 void update(World& w,const bool* keys,float dt){
     if(w.won||w.lost) return;
     w.time+=dt;
+    if(!w.dialogue.empty())return;
     w.hero.slashTimer=std::max(0.f,w.hero.slashTimer-dt);
     w.hero.hurtTimer=std::max(0.f,w.hero.hurtTimer-dt);
     Vec2 input{static_cast<float>(int(keys[SDL_SCANCODE_D])-int(keys[SDL_SCANCODE_A])),
@@ -288,8 +301,17 @@ void update(World& w,const bool* keys,float dt){
     auto dir=normalized(input);
     if(dir.x!=0 || dir.y!=0){
         w.hero.facing=dir;
-        moveBody(w.hero.pos,{dir.x*PLAYER_SPEED,dir.y*PLAYER_SPEED},dt,11);
+        if(w.scene==Scene::HOME){
+            w.hero.pos.x=clamp(w.hero.pos.x+dir.x*PLAYER_SPEED*dt,88.f,float(WIDTH-90));
+            w.hero.pos.y=clamp(w.hero.pos.y+dir.y*PLAYER_SPEED*dt,112.f,float(HEIGHT-86));
+        }else if(w.scene==Scene::OUTSKIRTS){
+            w.hero.pos.x=clamp(w.hero.pos.x+dir.x*PLAYER_SPEED*dt,20.f,float(WIDTH-20));
+            w.hero.pos.y=clamp(w.hero.pos.y+dir.y*PLAYER_SPEED*dt,195.f,float(HEIGHT-20));
+        }else{
+            moveBody(w.hero.pos,{dir.x*PLAYER_SPEED,dir.y*PLAYER_SPEED},dt,11);
+        }
     }
+    if(w.story<9)return;
     for(auto& e:w.enemies){
         if(e.hp<=0)continue;
         e.wobble+=dt*5;
@@ -297,7 +319,8 @@ void update(World& w,const bool* keys,float dt){
         Vec2 delta{w.hero.pos.x-e.pos.x,w.hero.pos.y-e.pos.y};
         if(withinRange(w.hero.pos,e.pos,360) && !withinRange(w.hero.pos,e.pos,28)){
             auto chase=normalized(delta);
-            moveBody(e.pos,{chase.x*ENEMY_SPEED,chase.y*ENEMY_SPEED},dt,11);
+            e.pos.x=clamp(e.pos.x+chase.x*ENEMY_SPEED*dt,20.f,float(WIDTH-20));
+            e.pos.y=clamp(e.pos.y+chase.y*ENEMY_SPEED*dt,195.f,float(HEIGHT-20));
         }
         if(withinRange(w.hero.pos,e.pos,32) && e.attackTimer<=0){
             e.attackTimer=1.15f;
@@ -309,6 +332,285 @@ void update(World& w,const bool* keys,float dt){
         }
     }
 }
+
+struct Character {
+    Vec2 p;
+    const char* name;
+    Uint8 r,g,b;
+    bool older=false;
+    bool child=false;
+};
+const std::array<Character,3> FAMILY{{
+    {{300,260},"MOTHER",157,65,85,false,false},
+    {{615,270},"FATHER",91,104,129,true,false},
+    {{460,405},"LILY",192,113,72,false,true}
+}};
+const std::array<Character,3> VILLAGERS{{
+    {{480,255},"ELDER",125,83,72,true,false},
+    {{345,325},"MERCHANT",96,137,106,false,false},
+    {{670,325},"GUARD",123,133,158,false,false}
+}};
+void drawPerson(SDL_Renderer* r,const Character& c) {
+    int x=int(c.p.x),y=int(c.p.y),height=c.child?15:20;
+    rect(r,x-13,y+14,26,5,37,59,49);
+    rect(r,x-8,y,6,14,63,60,66);
+    rect(r,x+3,y,6,14,63,60,66);
+    rect(r,x-11,y-height,22,height+2,c.r,c.g,c.b);
+    rect(r,x-15,y-height+4,5,14,207,159,118);
+    rect(r,x+11,y-height+4,5,14,207,159,118);
+    rect(r,x-9,y-height-16,18,16,224,176,127);
+    rect(r,x-10,y-height-19,20,7,c.older?109:95,c.older?91:59,c.older?71:44);
+    rect(r,x-11,y-height-15,4,10,c.older?132:99,c.older?115:68,c.older?93:48);
+    rect(r,x+7,y-height-15,4,10,c.older?132:99,c.older?115:68,c.older?93:48);
+    rect(r,x-5,y-height-9,3,3,55,50,49);
+    rect(r,x+3,y-height-9,3,3,55,50,49);
+    if(c.older)rect(r,x-6,y-height-3,12,7,166,147,119);
+    if(c.child)rect(r,x-14,y-height-15,6,8,159,82,56);
+}
+void drawYoungHero(SDL_Renderer* r,Vec2 p) {
+    int x=int(p.x),y=int(p.y);
+    rect(r,x-13,y+12,27,5,37,56,47);
+    rect(r,x-8,y+1,7,12,60,58,69);
+    rect(r,x+2,y+1,7,12,60,58,69);
+    rect(r,x-10,y-14,20,17,57,95,160);
+    rect(r,x-13,y-12,4,14,191,143,107);
+    rect(r,x+10,y-12,4,14,191,143,107);
+    rect(r,x-9,y-29,18,17,223,172,121);
+    rect(r,x-11,y-31,22,11,93,52,34);
+    rect(r,x-4,y-18,3,3,57,43,44);
+    rect(r,x+4,y-18,3,3,57,43,44);
+    rect(r,x-3,y-12,6,11,183,55,63);
+}
+void drawCottage(SDL_Renderer* r,float time) {
+    rect(r,0,0,WIDTH,HEIGHT,29,24,29);
+    rect(r,40,30,WIDTH-80,HEIGHT-70,96,65,46);
+    for(int y=50;y<HEIGHT-40;y+=23){
+        rect(r,50,y,WIDTH-100,2,73,48,38);
+        for(int x=70+(y%4)*20;x<WIDTH-70;x+=95)
+            rect(r,x,y+2,2,20,84,55,40);
+    }
+    rect(r,45,32,WIDTH-90,29,54,41,40);
+    rect(r,48,62,22,HEIGHT-117,58,39,35);
+    rect(r,WIDTH-70,62,22,HEIGHT-117,58,39,35);
+    rect(r,45,HEIGHT-68,WIDTH-90,21,52,40,38);
+    // central hearth with animated fire
+    rect(r,105,74,165,152,73,77,82);
+    rect(r,123,86,129,131,139,140,135);
+    rect(r,145,130,84,73,49,38,35);
+    rect(r,152,149,71,49,22,18,19);
+    int flicker=int(7*std::sin(time*11));
+    rect(r,175,151-flicker,30,44+flicker,242,139,43);
+    rect(r,183,129+flicker,15,57-flicker,255,211,88);
+    rect(r,174,187,42,8,115,56,30);
+    // Window with distant green hills
+    rect(r,350,73,209,113,52,43,39);
+    rect(r,358,80,193,100,138,195,207);
+    rect(r,359,133,192,46,92,137,83);
+    rect(r,358,97,193,25,139,185,216);
+    rect(r,450,81,11,101,101,65,46);
+    rect(r,359,123,192,9,101,65,46);
+    // Cupboards, hanging pans, plants
+    rect(r,640,73,201,139,94,61,44);
+    rect(r,652,85,176,18,65,43,37);
+    rect(r,658,113,23,38,147,94,63);
+    rect(r,700,116,26,36,65,84,73);
+    rect(r,750,118,23,35,142,111,67);
+    rect(r,790,114,23,38,128,79,50);
+    rect(r,652,162,176,15,65,43,37);
+    for(int i=0;i<5;i++)rect(r,663+i*31,181,23,26,119,92,66);
+    // Family table
+    rect(r,350,330,262,92,56,37,32);
+    rect(r,360,319,242,86,134,87,51);
+    rect(r,370,329,222,67,164,116,65);
+    rect(r,401,344,36,17,218,185,111);
+    rect(r,496,347,21,17,213,212,166);
+    rect(r,555,347,17,20,134,158,129);
+    // Bed, carpet, lanterns
+    rect(r,712,385,159,155,63,48,56);
+    rect(r,722,392,140,140,126,113,147);
+    rect(r,728,402,129,38,207,195,178);
+    rect(r,728,449,129,75,97,103,142);
+    rect(r,125,434,202,94,116,52,47);
+    rect(r,132,440,188,83,146,76,59);
+    rect(r,152,450,150,62,178,116,66);
+    // Exit threshold
+    rect(r,427,HEIGHT-68,106,27,112,75,46);
+    rect(r,434,HEIGHT-68,92,22,159,112,64);
+    rect(r,446,HEIGHT-64,69,6,193,153,89);
+    fillText(r,"EXIT",453,HEIGHT-56,3,244,221,166);
+    for(int x: {80,870}){
+        rect(r,x,240,10,32,90,61,43);
+        rect(r,x-8,228,26,14,245,188,88);
+        rect(r,x-4,223,17,7,255,220,142);
+    }
+}
+void drawOutskirts(SDL_Renderer* r,float time){
+    rect(r,0,0,WIDTH,HEIGHT,76,130,95);
+    rect(r,0,0,WIDTH,170,113,164,183);
+    rect(r,0,118,WIDTH,97,76,125,119);
+    for(int x=0;x<WIDTH;x+=35) {
+        int ridge=165+int(27*std::sin(x*.014f));
+        rect(r,x,ridge,36,85,56,105,87);
+    }
+    for(int y=208;y<HEIGHT;y+=32)for(int x=0;x<WIDTH;x+=32){
+        auto n=noise(x/32,y/32,21);
+        rect(r,x,y,32,32,52+int(n%27),113+int(n%30),69+int(n%19));
+        if(n%3==0)rect(r,x+7,y+13,3,5,159,191,88);
+        if(n%17==0)rect(r,x+19,y+11,4,4,211,174,83);
+    }
+    // Long winding dirt road
+    for(int y=190;y<HEIGHT;y+=12){
+        int cx=470+int(95*std::sin(y*.007f));
+        rect(r,cx-110,y,220,13,147,120,78);
+        rect(r,cx-86,y+6,9,3,172,149,108);
+    }
+    // Fences on both sides of the road
+    for(int i=0;i<15;i++){
+        int x=i*70;
+        if(x>720 && x<920)continue;
+        int y=440+int(30*std::sin(i));
+        rect(r,x,y,7,42,103,72,43);
+        rect(r,x+5,y+12,55,6,139,99,58);
+    }
+    for(int i=0;i<14;i++){
+        int x=int(noise(i,8)%WIDTH),y=int(noise(i,9)%300)+240;
+        if(x>340&&x<650)continue;
+        drawTree(r,x,y,noise(i,18));
+    }
+    // Ominous smoke from a distant ruined watchtower
+    rect(r,765,153,96,96,102,93,86);
+    rect(r,754,143,118,18,69,66,70);
+    rect(r,767,124,21,28,78,77,80);
+    rect(r,839,124,22,27,78,77,80);
+    rect(r,798,184,30,63,35,32,38);
+    for(int i=0;i<6;i++){
+        int off=int(10*std::sin(time*.8f+i));
+        rect(r,802+off-i*5,100-i*18,42-i*3,15,82+i*9,82+i*9,86+i*8);
+    }
+    rect(r,783,247,50,9,213,111,51);
+    rect(r,792,240,33,8,241,154,64);
+}
+void storyPanel(SDL_Renderer* r,const World& w) {
+    rect(r,12,12,WIDTH-24,68,27,33,41);
+    outline(r,12,12,WIDTH-24,68,207,171,99);
+    std::string objective;
+    switch(w.story){
+        case 0:objective="SPEAK TO MOTHER";break;
+        case 1:objective="SPEAK TO FATHER";break;
+        case 2:objective="SPEAK TO LILY";break;
+        case 3:objective="LEAVE THE COTTAGE";break;
+        case 4:objective="MEET THE VILLAGE ELDER";break;
+        case 5:objective="ASK THE MERCHANT";break;
+        case 6:objective="TALK TO THE GUARD";break;
+        case 7:objective="GO TO THE EAST ROAD";break;
+        case 8:objective="EXAMINE THE SMOKE";break;
+        default:objective="DEFEND ASHVALE";break;
+    }
+    fillText(r,"CHAPTER 1 - SMOKE ON THE HORIZON",25,22,3,232,206,145);
+    fillText(r,"QUEST: "+objective,25,52,2,224,224,208);
+    rect(r,13,HEIGHT-42,WIDTH-26,31,26,33,40);
+    outline(r,13,HEIGHT-42,WIDTH-26,31,207,171,99);
+    fillText(r,"WASD MOVE  E TALK / INTERACT  SPACE CONTINUE",27,HEIGHT-32,2,230,204,162);
+}
+void drawDialogue(SDL_Renderer* r,const World& w){
+    if(w.dialogue.empty())return;
+    SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_BLEND);
+    color(r,18,18,26,230);
+    SDL_FRect bg{45,float(HEIGHT-204),float(WIDTH-90),160};
+    SDL_RenderFillRect(r,&bg);
+    SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_NONE);
+    outline(r,45,HEIGHT-204,WIDTH-90,160,204,163,94);
+    outline(r,50,HEIGHT-199,WIDTH-100,150,110,88,66);
+    rect(r,72,HEIGHT-223,210,34,83,55,44);
+    outline(r,72,HEIGHT-223,210,34,216,174,95);
+    fillText(r,w.speaker,91,HEIGHT-214,3,243,217,156);
+    fillText(r,w.dialogue,75,HEIGHT-169,3,242,232,213);
+    fillText(r,"PRESS SPACE OR E",WIDTH-279,HEIGHT-75,2,232,194,112);
+}
+void showDialogue(World& w,const char* speaker,const char* words) {
+    w.speaker=speaker;w.dialogue=words;
+}
+void goVillage(World& w){
+    w.scene=Scene::VILLAGE;
+    w.hero.pos={477,480};
+    showDialogue(w,"HERO","THE VILLAGE IS BUSY TODAY.\nI SHOULD FIND ELDER ROWAN.");
+}
+void goOutskirts(World& w){
+    w.scene=Scene::OUTSKIRTS;
+    w.hero.pos={138,355};
+    showDialogue(w,"HERO","THAT SMOKE IS NOT FROM A CHIMNEY.\nSOMETHING IS WRONG NEAR THE ROAD.");
+}
+void beginBattle(World& w){
+    w.story=9;
+    w.hero.hp=100;
+    w.hero.pos={430,450};
+    w.enemies={
+        {{740,319},3,0,0},{{600,291},3,0,1},
+        {{750,450},3,0,2},{{715,550},3,0,3},
+        {{645,420},3,0,4},{{820,390},3,0,5},
+        {{810,550},3,0,6},{{550,525},3,0,7}
+    };
+    showDialogue(w,"HERO","GOBLINS! I HAVE TO PROTECT\nTHE ROAD TO ASHVALE!");
+}
+void interact(World& w){
+    if(!w.dialogue.empty()){w.dialogue.clear();return;}
+    if(w.story==0 && withinRange(w.hero.pos,FAMILY[0].p,72)){
+        w.story=1;showDialogue(w,"MOTHER","GOOD MORNING, ELIAN!\nYOUR FATHER HAS SOMETHING TO SAY.");return;
+    }
+    if(w.story==1 && withinRange(w.hero.pos,FAMILY[1].p,72)){
+        w.story=2;showDialogue(w,"FATHER","TAKE THIS OLD SWORD WHEN YOU GO.\nBUT SEE LILY BEFORE LEAVING.");return;
+    }
+    if(w.story==2 && withinRange(w.hero.pos,FAMILY[2].p,72)){
+        w.story=3;showDialogue(w,"LILY","COME HOME BEFORE SUNSET!\nI MADE YOU A LUCKY CHARM.");return;
+    }
+    if(w.story==3 && w.hero.pos.y>HEIGHT-130 && w.hero.pos.x>395 && w.hero.pos.x<570){
+        w.story=4;goVillage(w);return;
+    }
+    if(w.story==4 && withinRange(w.hero.pos,VILLAGERS[0].p,75)){
+        w.story=5;showDialogue(w,"ELDER ROWAN","A STRANGE SMOKE RISES IN THE EAST.\nASK THE MERCHANT WHAT SHE SAW.");return;
+    }
+    if(w.story==5 && withinRange(w.hero.pos,VILLAGERS[1].p,75)){
+        w.story=6;showDialogue(w,"MERCHANT","MY CART HORSES FLED THE EAST ROAD.\nTHE GUARD MAY KNOW MORE.");return;
+    }
+    if(w.story==6 && withinRange(w.hero.pos,VILLAGERS[2].p,75)){
+        w.story=7;showDialogue(w,"GUARD","I HEARD SCREAMS BEYOND THE FIELD.\nTAKE CARE IF YOU INVESTIGATE.");return;
+    }
+    if(w.story==7 && withinRange(w.hero.pos,{825,340},80)){
+        w.story=8;goOutskirts(w);return;
+    }
+    if(w.story==8 && withinRange(w.hero.pos,{782,285},90)){
+        beginBattle(w);return;
+    }
+    if(w.scene==Scene::HOME) {
+        for(auto& c:FAMILY)if(withinRange(w.hero.pos,c.p,72)){
+            showDialogue(w,c.name,"BE SAFE OUT THERE, ELIAN.");return;
+        }
+    }
+    if(w.scene==Scene::VILLAGE){
+        for(auto& c:VILLAGERS)if(withinRange(w.hero.pos,c.p,75)){
+            showDialogue(w,c.name,"MAY THE ROAD BE KIND TO YOU.");return;
+        }
+    }
+}
+void drawInteractPrompt(SDL_Renderer* r,const World& w){
+    if(!w.dialogue.empty() || w.story>=9)return;
+    Vec2 target{};
+    switch(w.story){
+        case 0:target=FAMILY[0].p;break;
+        case 1:target=FAMILY[1].p;break;
+        case 2:target=FAMILY[2].p;break;
+        case 3:target={477,float(HEIGHT-89)};break;
+        case 4:target=VILLAGERS[0].p;break;
+        case 5:target=VILLAGERS[1].p;break;
+        case 6:target=VILLAGERS[2].p;break;
+        case 7:target={825,340};break;
+        case 8:target={782,285};break;
+    }
+    rect(r,int(target.x)-20,int(target.y)-77,40,29,34,35,43);
+    outline(r,int(target.x)-20,int(target.y)-77,40,29,215,182,114);
+    fillText(r,"E",int(target.x)-5,int(target.y)-70,3,250,226,154);
+}
+
 void drawOverlay(SDL_Renderer* r,const World& w){
     if(!w.won&&!w.lost)return;
     SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_BLEND);
@@ -347,7 +649,9 @@ int main(int argc,char** argv){
             if(ev.type==SDL_EVENT_KEY_DOWN && ev.key.repeat==0){
                 if(ev.key.key==SDLK_ESCAPE)running=false;
                 if(ev.key.key==SDLK_R)reset(world);
-                if(ev.key.key==SDLK_SPACE)attack(world);
+                if(ev.key.key==SDLK_E || (ev.key.key==SDLK_SPACE && !world.dialogue.empty()))
+                    interact(world);
+                else if(ev.key.key==SDLK_SPACE)attack(world);
             }
         }
         Uint64 now=SDL_GetPerformanceCounter();
@@ -355,12 +659,28 @@ int main(int argc,char** argv){
         last=now;
         dt=clamp(dt,0.f,0.035f);
         update(world,SDL_GetKeyboardState(nullptr),dt);
-        drawMap(renderer,world.time);
-        for(const auto& e:world.enemies)if(e.hp>0)drawEnemy(renderer,e);
-        drawKnight(renderer,world.hero.pos,world.hero.facing,world.hero.slashTimer,
-                   world.hero.hurtTimer>0);
-        drawHud(renderer,world);
+        if(world.scene==Scene::HOME){
+            drawCottage(renderer,world.time);
+            for(const auto& c:FAMILY)drawPerson(renderer,c);
+        }else if(world.scene==Scene::VILLAGE){
+            drawMap(renderer,world.time);
+            for(const auto& c:VILLAGERS)drawPerson(renderer,c);
+            rect(renderer,809,303,70,67,145,116,76);
+            outline(renderer,809,303,70,67,218,175,91);
+            fillText(renderer,"EAST",813,324,3,241,218,167);
+        }else{
+            drawOutskirts(renderer,world.time);
+            for(const auto& e:world.enemies)if(e.hp>0)drawEnemy(renderer,e);
+        }
+        if(world.story>=9)
+            drawKnight(renderer,world.hero.pos,world.hero.facing,world.hero.slashTimer,world.hero.hurtTimer>0);
+        else drawYoungHero(renderer,world.hero.pos);
+        if(world.story<9){
+            storyPanel(renderer,world);
+            drawInteractPrompt(renderer,world);
+        }else drawHud(renderer,world);
         drawOverlay(renderer,world);
+        drawDialogue(renderer,world);
         SDL_RenderPresent(renderer);
         if(!(SDL_GetWindowFlags(window)&SDL_WINDOW_INPUT_FOCUS))SDL_Delay(16);
     }
