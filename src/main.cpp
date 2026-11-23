@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -47,6 +48,60 @@ struct World {
 
 void showDialogue(World& w,const char* speaker,const char* words);
 
+struct ArtAssets {
+    SDL_Texture* home=nullptr;
+    SDL_Texture* village=nullptr;
+    SDL_Texture* outskirts=nullptr;
+    SDL_Texture* hero=nullptr;
+    SDL_Texture* father=nullptr;
+    SDL_Texture* mother=nullptr;
+    SDL_Texture* lily=nullptr;
+};
+SDL_Texture* loadArt(SDL_Renderer* renderer,const char* filename){
+    namespace fs=std::filesystem;
+    const fs::path paths[]={
+        fs::path("assets")/filename,
+        fs::path("../assets")/filename,
+        fs::path("../../assets")/filename
+    };
+    for(const auto& path:paths){
+        if(!fs::exists(path)) continue;
+        SDL_Surface* surface=SDL_LoadBMP(path.string().c_str());
+        if(!surface){
+            std::cerr<<"Cannot load BMP "<<path.string()<<": "<<SDL_GetError()<<"\n";
+            continue;
+        }
+        SDL_Texture* texture=SDL_CreateTextureFromSurface(renderer,surface);
+        SDL_DestroySurface(surface);
+        if(texture){
+            SDL_SetTextureScaleMode(texture,SDL_SCALEMODE_NEAREST);
+            return texture;
+        }
+    }
+    return nullptr;
+}
+ArtAssets loadArtAssets(SDL_Renderer* renderer){
+    ArtAssets result;
+    result.home=loadArt(renderer,"home.bmp");
+    result.village=loadArt(renderer,"village.bmp");
+    result.outskirts=loadArt(renderer,"outskirts.bmp");
+    result.hero=loadArt(renderer,"hero.bmp");
+    result.father=loadArt(renderer,"father.bmp");
+    result.mother=loadArt(renderer,"mother.bmp");
+    result.lily=loadArt(renderer,"lily.bmp");
+    if(!result.home||!result.village||!result.outskirts)
+        std::cerr<<"AI art missing: extract art pack so assets/*.bmp exists. Using fallback visuals.\n";
+    return result;
+}
+void drawBackground(SDL_Renderer* r,SDL_Texture* art){
+    SDL_FRect dst{0.f,0.f,float(WIDTH),float(HEIGHT)};
+    SDL_RenderTexture(r,art,nullptr,&dst);
+}
+void destroyArtAssets(ArtAssets& art){
+    for(SDL_Texture* t:{art.home,art.village,art.outskirts,
+                       art.hero,art.father,art.mother,art.lily})
+        if(t)SDL_DestroyTexture(t);
+}
 void color(SDL_Renderer* r,Uint8 red,Uint8 green,Uint8 blue,Uint8 alpha=255){
     SDL_SetRenderDrawColor(r,red,green,blue,alpha);
 }
@@ -513,7 +568,7 @@ void storyPanel(SDL_Renderer* r,const World& w) {
     outline(r,13,HEIGHT-42,WIDTH-26,31,207,171,99);
     fillText(r,"WASD MOVE  E TALK / INTERACT  SPACE CONTINUE",27,HEIGHT-32,2,230,204,162);
 }
-void drawDialogue(SDL_Renderer* r,const World& w){
+void drawDialogue(SDL_Renderer* r,const World& w,const ArtAssets& art){
     if(w.dialogue.empty())return;
     SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_BLEND);
     color(r,18,18,26,230);
@@ -525,7 +580,16 @@ void drawDialogue(SDL_Renderer* r,const World& w){
     rect(r,72,HEIGHT-223,210,34,83,55,44);
     outline(r,72,HEIGHT-223,210,34,216,174,95);
     fillText(r,w.speaker,91,HEIGHT-214,3,243,217,156);
-    fillText(r,w.dialogue,75,HEIGHT-169,3,242,232,213);
+    SDL_Texture* portrait=art.hero;
+    if(w.speaker=="MOTHER")portrait=art.mother;
+    else if(w.speaker=="FATHER" || w.speaker=="ELDER ROWAN")portrait=art.father;
+    else if(w.speaker=="LILY")portrait=art.lily;
+    if(portrait){
+        SDL_FRect dst{72.f,float(HEIGHT-169),103.f,104.f};
+        SDL_RenderTexture(r,portrait,nullptr,&dst);
+        outline(r,71,HEIGHT-170,105,106,218,177,109);
+    }
+    fillText(r,w.dialogue,portrait?193:75,HEIGHT-169,3,242,232,213);
     fillText(r,"PRESS SPACE OR E",WIDTH-279,HEIGHT-75,2,232,194,112);
 }
 void showDialogue(World& w,const char* speaker,const char* words) {
@@ -640,6 +704,7 @@ int main(int argc,char** argv){
     }
     SDL_SetRenderLogicalPresentation(renderer,WIDTH,HEIGHT,SDL_LOGICAL_PRESENTATION_LETTERBOX);
     SDL_SetRenderVSync(renderer,1);
+    ArtAssets art=loadArtAssets(renderer);
     World world;reset(world);
     bool running=true;
     Uint64 last=SDL_GetPerformanceCounter();
@@ -661,16 +726,19 @@ int main(int argc,char** argv){
         dt=clamp(dt,0.f,0.035f);
         update(world,SDL_GetKeyboardState(nullptr),dt);
         if(world.scene==Scene::HOME){
-            drawCottage(renderer,world.time);
+            if(art.home)drawBackground(renderer,art.home);
+            else drawCottage(renderer,world.time);
             for(const auto& c:FAMILY)drawPerson(renderer,c);
         }else if(world.scene==Scene::VILLAGE){
-            drawMap(renderer,world.time);
+            if(art.village)drawBackground(renderer,art.village);
+            else drawMap(renderer,world.time);
             for(const auto& c:VILLAGERS)drawPerson(renderer,c);
             rect(renderer,809,303,70,67,145,116,76);
             outline(renderer,809,303,70,67,218,175,91);
             fillText(renderer,"EAST",813,324,3,241,218,167);
         }else{
-            drawOutskirts(renderer,world.time);
+            if(art.outskirts)drawBackground(renderer,art.outskirts);
+            else drawOutskirts(renderer,world.time);
             for(const auto& e:world.enemies)if(e.hp>0)drawEnemy(renderer,e);
         }
         if(world.story>=9)
@@ -681,10 +749,11 @@ int main(int argc,char** argv){
             drawInteractPrompt(renderer,world);
         }else drawHud(renderer,world);
         drawOverlay(renderer,world);
-        drawDialogue(renderer,world);
+        drawDialogue(renderer,world,art);
         SDL_RenderPresent(renderer);
         if(!(SDL_GetWindowFlags(window)&SDL_WINDOW_INPUT_FOCUS))SDL_Delay(16);
     }
+    destroyArtAssets(art);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
