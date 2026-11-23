@@ -8,3 +8,6 @@
 *.dll
 *.so
 *.dylib
+
+# Local SDL3 development SDK (downloaded separately)
+/SDL3-3.4.2/
