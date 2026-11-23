@@ -12,8 +12,9 @@ RpgGameTry/
   SDL3_image-3.4.8/x86_64-w64-mingw32/
   assets/
     home.png             # full cottage background with furniture
+    village.png          # large 1536x1024 village map (upload this PNG)
     family.png           # father/mother/Lily idle + 4 directions (3 frames)
-    *.bmp                # legacy backgrounds/portraits used in other scenes
+    *.bmp                # fallback backgrounds/portraits used in other scenes
 ```
 
 At startup SDL3_image loads `home.png` instead of the old `home.bmp`. Family NPCs render using crops from `family.png`, with dark sheet backdrop keyed out at load time. NPCs still follow the same scripted interactions; characters are animated with simple idle/talk frames. The spritesheet includes printed labels and a dark backdrop; the cropping is a prototype, not yet a clean production atlas.
@@ -30,6 +31,14 @@ ctest --test-dir build --output-on-failure
 ```
 
 CMake automatically detects both SDL3 and SDL3_image at the above local SDK paths, and copies their DLLs and the `assets/` directory into `build/`. The `SDL3_image-3.4.8/` SDK is local only and must not be committed. Without SDL3_image the game still builds and uses BMP/procedural artwork.
+
+## Expanded village collision and camera
+
+Put your generated **`village.png`** in `assets/` and commit/push it once. The artwork is **not yet in the remote repository** until you add it. When the file exists and SDL3_image is available, the village uses a **2304x1536 world** (the 1536x1024 image enlarged 1.5x), with a smooth camera following the player.
+
+The player cannot walk through mapped house footprints, the river, cliffs, fountain and market stalls. There are collision exemptions at the bridges. Movement is resolved per axis and subdivided into short steps to prevent fast movement through walls. NPC positions, interactions and east-road transition are mapped in the same scrolling world space. Press **F3** in the village to show collision outlines: **red** = building, **blue** = terrain/water, **green** = bridge passage. The collision shapes are approximate hand-authored polygons and may need adjustment after inspecting the final PNG in game.
+
+If the PNG has not been uploaded, the game keeps displaying the existing `village.bmp` and its old smaller map behavior.
 
 ## Features (v0.2)
 
