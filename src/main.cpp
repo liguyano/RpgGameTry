@@ -1,4 +1,5 @@
 #include "game_logic.h"
+#include "village_map.h"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #if RPG_HAS_SDL3_IMAGE
@@ -41,6 +42,8 @@ struct World {
     std::string dialogue;
     std::string speaker;
     bool justArrived=true;
+    bool largeVillage=false;
+    bool showCollision=false;
     Player hero;
     std::vector<Enemy> enemies;
     bool won=false, lost=false;
@@ -54,6 +57,7 @@ void showDialogue(World& w,const char* speaker,const char* words);
 struct ArtAssets {
     SDL_Texture* home=nullptr;
     SDL_Texture* village=nullptr;
+    bool expandedVillage=false;
     SDL_Texture* outskirts=nullptr;
     SDL_Texture* hero=nullptr;
     SDL_Texture* father=nullptr;
@@ -156,7 +160,11 @@ ArtAssets loadArtAssets(SDL_Renderer* renderer){
     result.home=loadArt(renderer,"home.png");
 #endif
     if(!result.home)result.home=loadArt(renderer,"home.bmp");
-    result.village=loadArt(renderer,"village.bmp");
+#if RPG_HAS_SDL3_IMAGE
+    result.village=loadArt(renderer,"village.png");
+    result.expandedVillage=(result.village!=nullptr);
+#endif
+    if(!result.village)result.village=loadArt(renderer,"village.bmp");
     result.outskirts=loadArt(renderer,"outskirts.bmp");
     result.hero=loadArt(renderer,"hero.bmp");
     result.father=loadArt(renderer,"father.bmp");
@@ -440,7 +448,8 @@ void update(World& w,const bool* keys,float dt){
             w.hero.pos.x=clamp(w.hero.pos.x+dir.x*PLAYER_SPEED*dt,20.f,float(WIDTH-20));
             w.hero.pos.y=clamp(w.hero.pos.y+dir.y*PLAYER_SPEED*dt,195.f,float(HEIGHT-20));
         }else{
-            moveBody(w.hero.pos,{dir.x*PLAYER_SPEED,dir.y*PLAYER_SPEED},dt,11);
+            if(w.largeVillage)village::move(w.hero.pos,{dir.x*PLAYER_SPEED,dir.y*PLAYER_SPEED},dt,11);
+            else moveBody(w.hero.pos,{dir.x*PLAYER_SPEED,dir.y*PLAYER_SPEED},dt,11);
         }
     }
     if(w.story<9)return;
@@ -477,6 +486,17 @@ const std::array<Character,3> FAMILY{{
     {{615,270},"FATHER",91,104,129,true,false},
     {{460,405},"LILY",192,113,72,false,true}
 }};
+const std::array<Vec2,3> LARGE_VILLAGE_NPCS{{
+    village::pos(774,565),
+    village::pos(670,564),
+    village::pos(971,767)
+}};
+const Vec2 LARGE_VILLAGE_EXIT=village::pos(1158,760);
+Vec2 npcPosition(const World& w,int index){
+    if(w.largeVillage)return LARGE_VILLAGE_NPCS[size_t(index)];
+    constexpr std::array<Vec2,3> fallback{{{480,255},{345,325},{670,325}}};
+    return fallback[size_t(index)];
+}
 const std::array<Character,3> VILLAGERS{{
     {{480,255},"ELDER",125,83,72,true,false},
     {{345,325},"MERCHANT",96,137,106,false,false},
@@ -673,7 +693,7 @@ void showDialogue(World& w,const char* speaker,const char* words) {
 }
 void goVillage(World& w){
     w.scene=Scene::VILLAGE;
-    w.hero.pos={477,480};
+    w.hero.pos=w.largeVillage?village::pos(545,755):Vec2{477,480};
     showDialogue(w,"HERO","THE VILLAGE IS BUSY TODAY.\nI SHOULD FIND ELDER ROWAN.");
 }
 void goOutskirts(World& w){
@@ -707,16 +727,16 @@ void interact(World& w){
     if(w.story==3 && w.hero.pos.y>HEIGHT-130 && w.hero.pos.x>395 && w.hero.pos.x<570){
         w.story=4;goVillage(w);return;
     }
-    if(w.story==4 && withinRange(w.hero.pos,VILLAGERS[0].p,75)){
+    if(w.story==4 && withinRange(w.hero.pos,npcPosition(w,0),75)){
         w.story=5;showDialogue(w,"ELDER ROWAN","A STRANGE SMOKE RISES IN THE EAST.\nASK THE MERCHANT WHAT SHE SAW.");return;
     }
-    if(w.story==5 && withinRange(w.hero.pos,VILLAGERS[1].p,75)){
+    if(w.story==5 && withinRange(w.hero.pos,npcPosition(w,1),75)){
         w.story=6;showDialogue(w,"MERCHANT","MY CART HORSES FLED THE EAST ROAD.\nTHE GUARD MAY KNOW MORE.");return;
     }
-    if(w.story==6 && withinRange(w.hero.pos,VILLAGERS[2].p,75)){
+    if(w.story==6 && withinRange(w.hero.pos,npcPosition(w,2),75)){
         w.story=7;showDialogue(w,"GUARD","I HEARD SCREAMS BEYOND THE FIELD.\nTAKE CARE IF YOU INVESTIGATE.");return;
     }
-    if(w.story==7 && withinRange(w.hero.pos,{825,340},80)){
+    if(w.story==7 && withinRange(w.hero.pos,w.largeVillage?LARGE_VILLAGE_EXIT:Vec2{825,340},80)){
         w.story=8;goOutskirts(w);return;
     }
     if(w.story==8 && withinRange(w.hero.pos,{782,285},90)){
@@ -728,8 +748,8 @@ void interact(World& w){
         }
     }
     if(w.scene==Scene::VILLAGE){
-        for(auto& c:VILLAGERS)if(withinRange(w.hero.pos,c.p,75)){
-            showDialogue(w,c.name,"MAY THE ROAD BE KIND TO YOU.");return;
+        for(int i=0;i<3;i++)if(withinRange(w.hero.pos,npcPosition(w,i),75)){
+            showDialogue(w,VILLAGERS[size_t(i)].name,"MAY THE ROAD BE KIND TO YOU.");return;
         }
     }
 }
@@ -741,11 +761,15 @@ void drawInteractPrompt(SDL_Renderer* r,const World& w){
         case 1:target=FAMILY[1].p;break;
         case 2:target=FAMILY[2].p;break;
         case 3:target={477,float(HEIGHT-89)};break;
-        case 4:target=VILLAGERS[0].p;break;
-        case 5:target=VILLAGERS[1].p;break;
-        case 6:target=VILLAGERS[2].p;break;
-        case 7:target={825,340};break;
+        case 4:target=npcPosition(w,0);break;
+        case 5:target=npcPosition(w,1);break;
+        case 6:target=npcPosition(w,2);break;
+        case 7:target=w.largeVillage?LARGE_VILLAGE_EXIT:Vec2{825,340};break;
         case 8:target={782,285};break;
+    }
+    if(w.scene==Scene::VILLAGE && w.largeVillage){
+        Vec2 camera=village::camera(w.hero.pos);
+        target.x-=camera.x;target.y-=camera.y;
     }
     rect(r,int(target.x)-20,int(target.y)-77,40,29,34,35,43);
     outline(r,int(target.x)-20,int(target.y)-77,40,29,215,182,114);
@@ -782,6 +806,7 @@ int main(int argc,char** argv){
     SDL_SetRenderVSync(renderer,1);
     ArtAssets art=loadArtAssets(renderer);
     World world;reset(world);
+    world.largeVillage=art.expandedVillage;
     bool running=true;
     Uint64 last=SDL_GetPerformanceCounter();
     while(running){
@@ -790,7 +815,10 @@ int main(int argc,char** argv){
             if(ev.type==SDL_EVENT_QUIT)running=false;
             if(ev.type==SDL_EVENT_KEY_DOWN && ev.key.repeat==0){
                 if(ev.key.key==SDLK_ESCAPE)running=false;
-                if(ev.key.key==SDLK_R)reset(world);
+                if(ev.key.key==SDLK_R){
+                    reset(world);world.largeVillage=art.expandedVillage;
+                }
+                if(ev.key.key==SDLK_F3)world.showCollision=!world.showCollision;
                 if(ev.key.key==SDLK_E || (ev.key.key==SDLK_SPACE && !world.dialogue.empty()))
                     interact(world);
                 else if(ev.key.key==SDLK_SPACE)attack(world);
@@ -815,20 +843,59 @@ int main(int argc,char** argv){
                 else drawPerson(renderer,c);
             }
         }else if(world.scene==Scene::VILLAGE){
-            if(art.village)drawBackground(renderer,art.village);
-            else drawMap(renderer,world.time);
-            for(const auto& c:VILLAGERS)drawPerson(renderer,c);
-            rect(renderer,809,303,70,67,145,116,76);
-            outline(renderer,809,303,70,67,218,175,91);
-            fillText(renderer,"EAST",813,324,3,241,218,167);
+            if(world.largeVillage && art.village){
+                const Vec2 camera=village::camera(world.hero.pos);
+                SDL_FRect bg{-camera.x,-camera.y,village::WORLD_W,village::WORLD_H};
+                SDL_RenderTexture(renderer,art.village,nullptr,&bg);
+                for(int i=0;i<3;i++){
+                    Character c=VILLAGERS[size_t(i)];
+                    c.p=npcPosition(world,i);
+                    c.p.x-=camera.x;c.p.y-=camera.y;
+                    drawPerson(renderer,c);
+                }
+                if(world.showCollision){
+                    SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_BLEND);
+                    for(const auto& poly:village::obstacles()){
+                        for(size_t i=0;i<poly.count;i++){
+                            auto a=poly.points[i],b=poly.points[(i+1)%poly.count];
+                            color(renderer,255,72,72,180);
+                            SDL_RenderLine(renderer,a.x-camera.x,a.y-camera.y,b.x-camera.x,b.y-camera.y);
+                        }
+                    }
+                    for(const auto& poly:village::terrain()){
+                        for(size_t i=0;i<poly.count;i++){
+                            auto a=poly.points[i],b=poly.points[(i+1)%poly.count];
+                            color(renderer,60,190,255,210);
+                            SDL_RenderLine(renderer,a.x-camera.x,a.y-camera.y,b.x-camera.x,b.y-camera.y);
+                        }
+                    }
+                    for(const auto& bridge:village::bridgePassages()){
+                        SDL_FRect r{bridge.x-camera.x,bridge.y-camera.y,bridge.w,bridge.h};
+                        color(renderer,109,245,130,230);SDL_RenderRect(renderer,&r);
+                    }
+                    SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_NONE);
+                }
+            }else{
+                if(art.village)drawBackground(renderer,art.village);
+                else drawMap(renderer,world.time);
+                for(const auto& c:VILLAGERS)drawPerson(renderer,c);
+                rect(renderer,809,303,70,67,145,116,76);
+                outline(renderer,809,303,70,67,218,175,91);
+                fillText(renderer,"EAST",813,324,3,241,218,167);
+            }
         }else{
             if(art.outskirts)drawBackground(renderer,art.outskirts);
             else drawOutskirts(renderer,world.time);
             for(const auto& e:world.enemies)if(e.hp>0)drawEnemy(renderer,e);
         }
+        Vec2 heroScreen=world.hero.pos;
+        if(world.scene==Scene::VILLAGE && world.largeVillage){
+            Vec2 camera=village::camera(world.hero.pos);
+            heroScreen.x-=camera.x;heroScreen.y-=camera.y;
+        }
         if(world.story>=9)
-            drawKnight(renderer,world.hero.pos,world.hero.facing,world.hero.slashTimer,world.hero.hurtTimer>0);
-        else drawYoungHero(renderer,world.hero.pos);
+            drawKnight(renderer,heroScreen,world.hero.facing,world.hero.slashTimer,world.hero.hurtTimer>0);
+        else drawYoungHero(renderer,heroScreen);
         if(world.story<9){
             storyPanel(renderer,world);
             drawInteractPrompt(renderer,world);
