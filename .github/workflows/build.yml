@@ -7,8 +7,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install SDL2 and toolchain
-        run: sudo apt-get update && sudo apt-get install -y g++ cmake libsdl2-dev pkg-config
+      - name: Install SDL3 and toolchain
+        run: sudo apt-get update && sudo apt-get install -y g++ cmake libsdl3-dev pkg-config
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
       - name: Build
