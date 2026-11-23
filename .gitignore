@@ -11,3 +11,5 @@
 
 # Local SDL3 development SDK (downloaded separately)
 /SDL3-3.4.2/
+
+/SDL3_image-3.4.8/
