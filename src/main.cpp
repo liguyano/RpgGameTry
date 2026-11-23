@@ -221,14 +221,40 @@ void loadFamilyFrames(SDL_Renderer* r,ArtAssets& art){
         if(!cropped)continue;
         SDL_Rect src{centers[dir][frame]-FRAME_WIDTH/2,tops[who],FRAME_WIDTH,FRAME_HEIGHT};
         if(SDL_BlitSurface(sheet,&src,cropped,nullptr)){
-            for(int y=0;y<FRAME_HEIGHT;y++)for(int x=0;x<FRAME_WIDTH;x++){
+            // Flood-fill only the matte connected to the frame edges.
+            // A blanket darkness threshold punched holes in the hair,
+            // beards, shoes, aprons and other shaded clothing.
+            Uint8 matteR=25,matteG=25,matteB=31,matteA=255;
+            SDL_ReadSurfacePixel(cropped,3,3,&matteR,&matteG,&matteB,&matteA);
+            std::vector<Uint8> seen(size_t(FRAME_WIDTH)*FRAME_HEIGHT,0);
+            std::vector<int> queue;
+            queue.reserve(seen.size());
+            auto isMatte=[&](int x,int y){
                 Uint8 red=0,green=0,blue=0,alpha=255;
-                if(!SDL_ReadSurfacePixel(cropped,x,y,&red,&green,&blue,&alpha))continue;
-                const int hi=std::max({int(red),int(green),int(blue)});
-                const int lo=std::min({int(red),int(green),int(blue)});
-                // Preserve colored outfits while keying out the near-charcoal sheet.
-                if(hi<62 && hi-lo<24)
-                    SDL_WriteSurfacePixel(cropped,x,y,0,0,0,0);
+                if(!SDL_ReadSurfacePixel(cropped,x,y,&red,&green,&blue,&alpha))return false;
+                constexpr int tolerance=18;
+                return alpha<20 ||
+                    (std::abs(int(red)-int(matteR))<tolerance &&
+                     std::abs(int(green)-int(matteG))<tolerance &&
+                     std::abs(int(blue)-int(matteB))<tolerance);
+            };
+            auto enqueue=[&](int x,int y){
+                if(x<0||y<0||x>=FRAME_WIDTH||y>=FRAME_HEIGHT)return;
+                size_t index=size_t(y)*FRAME_WIDTH+size_t(x);
+                if(seen[index]||!isMatte(x,y))return;
+                seen[index]=1;
+                queue.push_back(int(index));
+            };
+            for(int x=0;x<FRAME_WIDTH;x++){
+                enqueue(x,0);enqueue(x,FRAME_HEIGHT-1);
+            }
+            for(int y=0;y<FRAME_HEIGHT;y++){
+                enqueue(0,y);enqueue(FRAME_WIDTH-1,y);
+            }
+            for(size_t head=0;head<queue.size();++head){
+                int index=queue[head],x=index%FRAME_WIDTH,y=index/FRAME_WIDTH;
+                SDL_WriteSurfacePixel(cropped,x,y,0,0,0,0);
+                enqueue(x-1,y);enqueue(x+1,y);enqueue(x,y-1);enqueue(x,y+1);
             }
             SDL_Texture* frameTexture=SDL_CreateTextureFromSurface(r,cropped);
             if(frameTexture){
