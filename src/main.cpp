@@ -33,6 +33,8 @@ struct Player {
     float slashTimer=0;
     float hurtTimer=0;
     int kills=0;
+    bool moving=false;
+    float animationTime=0.f;
 };
 enum class Scene { HOME, VILLAGE, OUTSKIRTS };
 
@@ -64,6 +66,7 @@ struct ArtAssets {
     SDL_Texture* mother=nullptr;
     SDL_Texture* lily=nullptr;
     std::array<SDL_Texture*,36> familyFrames{};
+    std::array<SDL_Texture*,16> heroFrames{};
 };
 SDL_Texture* loadArt(SDL_Renderer* renderer,const char* filename){
     namespace fs=std::filesystem;
@@ -97,6 +100,95 @@ SDL_Texture* loadArt(SDL_Renderer* renderer,const char* filename){
 // Extract the 3 relatives' four facing directions (3 frames each) from family.png.
 // The supplied sheet is a labeled concept sheet rather than a transparent atlas,
 // so the dark sheet background is removed during one-time loading.
+
+// The generated hero.png is a 1536x1024 labeled concept sheet, not a conventional
+// transparent spritesheet. Each row has 4 walking poses facing down/left/right/up.
+// Extract only each character silhouette and flood-fill the connected dark backdrop
+// from the frame border so that dark outlines INSIDE the hero are not erased.
+void loadHeroFrames(SDL_Renderer* r,ArtAssets& art){
+#if RPG_HAS_SDL3_IMAGE
+    namespace fs=std::filesystem;
+    fs::path sheetPath;
+    for(const fs::path& path:{fs::path("assets/hero.png"),
+                              fs::path("../assets/hero.png"),
+                              fs::path("../../assets/hero.png")}){
+        if(fs::exists(path)){sheetPath=path;break;}
+    }
+    if(sheetPath.empty()){std::cerr<<"hero.png not found; using procedural player\n";return;}
+    SDL_Surface* sheet=IMG_Load(sheetPath.string().c_str());
+    if(!sheet){std::cerr<<"Cannot load hero.png: "<<SDL_GetError()<<"\n";return;}
+    // Positions measured on the original art sheet (1536x1024).
+    constexpr int cx[4]={321,523,728,930};
+    constexpr int top[4]={19,266,512,759};
+    constexpr int baseWidth=152,baseHeight=218;
+    const float sx=float(sheet->w)/1536.f,sy=float(sheet->h)/1024.f;
+    for(int dir=0;dir<4;dir++)for(int pose=0;pose<4;pose++){
+        const int frameW=std::max(1,int(baseWidth*sx));
+        const int frameH=std::max(1,int(baseHeight*sy));
+        const int left=int(cx[pose]*sx)-frameW/2;
+        const int upper=int(top[dir]*sy);
+        if(left<0||upper<0||left+frameW>sheet->w||upper+frameH>sheet->h)continue;
+        SDL_Surface* cropped=SDL_CreateSurface(frameW,frameH,SDL_PIXELFORMAT_RGBA32);
+        if(!cropped)continue;
+        SDL_Rect region{left,upper,frameW,frameH};
+        if(SDL_BlitSurface(sheet,&region,cropped,nullptr)){
+            const size_t count=size_t(frameW)*size_t(frameH);
+            std::vector<Uint8> seen(count,0);
+            std::vector<int> queue;
+            queue.reserve(count);
+            auto candidate=[&](int x,int y){
+                Uint8 red=0,green=0,blue=0,alpha=255;
+                if(!SDL_ReadSurfacePixel(cropped,x,y,&red,&green,&blue,&alpha))return false;
+                int high=std::max({int(red),int(green),int(blue)});
+                int low=std::min({int(red),int(green),int(blue)});
+                return alpha<20 || (high<115 && high-low<52);
+            };
+            auto enqueue=[&](int x,int y){
+                if(x<0||y<0||x>=frameW||y>=frameH)return;
+                size_t index=size_t(y)*size_t(frameW)+size_t(x);
+                if(seen[index] || !candidate(x,y))return;
+                seen[index]=1;
+                queue.push_back(int(index));
+            };
+            for(int x=0;x<frameW;x++){enqueue(x,0);enqueue(x,frameH-1);}
+            for(int y=0;y<frameH;y++){enqueue(0,y);enqueue(frameW-1,y);}
+            for(size_t head=0;head<queue.size();head++){
+                int k=queue[head],x=k%frameW,y=k/frameW;
+                SDL_WriteSurfacePixel(cropped,x,y,0,0,0,0);
+                enqueue(x-1,y);enqueue(x+1,y);enqueue(x,y-1);enqueue(x,y+1);
+            }
+            SDL_Texture* tex=SDL_CreateTextureFromSurface(r,cropped);
+            if(tex){
+                SDL_SetTextureScaleMode(tex,SDL_SCALEMODE_NEAREST);
+                SDL_SetTextureBlendMode(tex,SDL_BLENDMODE_BLEND);
+                art.heroFrames[size_t(dir)*4+size_t(pose)]=tex;
+            }
+        }
+        SDL_DestroySurface(cropped);
+    }
+    SDL_DestroySurface(sheet);
+    std::cerr<<"Loaded hero.png directional animation frames\n";
+#else
+    (void)r;(void)art;
+#endif
+}
+int facingSpriteDirection(Vec2 facing){
+    if(std::abs(facing.x)>std::abs(facing.y))return facing.x<0.f?1:2;
+    return facing.y<0.f?3:0;
+}
+bool drawAnimatedHero(SDL_Renderer* r,const ArtAssets& art,
+                      Vec2 position,Vec2 facing,bool moving,float animTime){
+    const int direction=facingSpriteDirection(facing);
+    const int frame=moving?int(animTime*7.5f)%4:0;
+    SDL_Texture* tex=art.heroFrames[size_t(direction)*4+size_t(frame)];
+    if(!tex)tex=art.heroFrames[size_t(direction)*4];
+    if(!tex)return false;
+    // Align bottom of sprite to character feet; preserve all four facing poses.
+    SDL_FRect dst{position.x-26.f,position.y-63.f,52.f,78.f};
+    SDL_RenderTexture(r,tex,nullptr,&dst);
+    return true;
+}
+
 void loadFamilyFrames(SDL_Renderer* r,ArtAssets& art){
 #if RPG_HAS_SDL3_IMAGE
     namespace fs=std::filesystem;
@@ -171,6 +263,7 @@ ArtAssets loadArtAssets(SDL_Renderer* renderer){
     result.mother=loadArt(renderer,"mother.bmp");
     result.lily=loadArt(renderer,"lily.bmp");
     loadFamilyFrames(renderer,result);
+    loadHeroFrames(renderer,result);
     if(!result.home||!result.village||!result.outskirts)
         std::cerr<<"AI art missing: extract art pack so assets/*.bmp exists. Using fallback visuals.\n";
     return result;
@@ -184,6 +277,8 @@ void destroyArtAssets(ArtAssets& art){
                        art.hero,art.father,art.mother,art.lily})
         if(t)SDL_DestroyTexture(t);
     for(SDL_Texture* t:art.familyFrames)
+        if(t)SDL_DestroyTexture(t);
+    for(SDL_Texture* t:art.heroFrames)
         if(t)SDL_DestroyTexture(t);
 }
 void color(SDL_Renderer* r,Uint8 red,Uint8 green,Uint8 blue,Uint8 alpha=255){
@@ -435,12 +530,19 @@ void update(World& w,const bool* keys,float dt){
     w.time+=dt;
     if(!w.dialogue.empty())return;
     w.hero.slashTimer=std::max(0.f,w.hero.slashTimer-dt);
+    w.hero.moving=false;
     w.hero.hurtTimer=std::max(0.f,w.hero.hurtTimer-dt);
     Vec2 input{static_cast<float>(int(keys[SDL_SCANCODE_D])-int(keys[SDL_SCANCODE_A])),
                static_cast<float>(int(keys[SDL_SCANCODE_S])-int(keys[SDL_SCANCODE_W]))};
     auto dir=normalized(input);
     if(dir.x!=0 || dir.y!=0){
         w.hero.facing=dir;
+        w.hero.moving=true;
+        w.hero.animationTime+=dt;
+    }else{
+        w.hero.animationTime=0.f;
+    }
+    if(dir.x!=0 || dir.y!=0){
         if(w.scene==Scene::HOME){
             w.hero.pos.x=clamp(w.hero.pos.x+dir.x*PLAYER_SPEED*dt,88.f,float(WIDTH-90));
             w.hero.pos.y=clamp(w.hero.pos.y+dir.y*PLAYER_SPEED*dt,112.f,float(HEIGHT-86));
@@ -893,9 +995,12 @@ int main(int argc,char** argv){
             Vec2 camera=village::camera(world.hero.pos);
             heroScreen.x-=camera.x;heroScreen.y-=camera.y;
         }
-        if(world.story>=9)
-            drawKnight(renderer,heroScreen,world.hero.facing,world.hero.slashTimer,world.hero.hurtTimer>0);
-        else drawYoungHero(renderer,heroScreen);
+        if(!drawAnimatedHero(renderer,art,heroScreen,world.hero.facing,
+                             world.hero.moving,world.hero.animationTime)){
+            if(world.story>=9)
+                drawKnight(renderer,heroScreen,world.hero.facing,world.hero.slashTimer,world.hero.hurtTimer>0);
+            else drawYoungHero(renderer,heroScreen);
+        }
         if(world.story<9){
             storyPanel(renderer,world);
             drawInteractPrompt(renderer,world);
