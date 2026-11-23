@@ -11,7 +11,7 @@ jobs:
         shell: pwsh
         run: |
           Invoke-WebRequest -Uri "https://github.com/libsdl-org/SDL/releases/download/release-3.4.2/SDL3-devel-3.4.2-mingw.zip" -OutFile "${{ runner.temp }}/sdl3.zip"
-          Expand-Archive -Path "${{ runner.temp }}/sdl3.zip" -DestinationPath "${{ github.workspace }}/SDL3-3.4.2"
+          Expand-Archive -Path "${{ runner.temp }}/sdl3.zip" -DestinationPath "${{ github.workspace }}"
           Get-ChildItem "${{ github.workspace }}/SDL3-3.4.2" | Select-Object Name
       - uses: msys2/setup-msys2@v2
         with:
