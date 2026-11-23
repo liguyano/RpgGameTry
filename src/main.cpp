@@ -136,12 +136,19 @@ void loadHeroFrames(SDL_Renderer* r,ArtAssets& art){
             std::vector<Uint8> seen(count,0);
             std::vector<int> queue;
             queue.reserve(count);
+            // The sheet's actual matte is almost uniform charcoal
+            // (approximately RGB 20,21,27). Never use a broad brightness
+            // threshold: the hero's blue clothes and dark hair would disappear.
+            Uint8 matteR=20,matteG=21,matteB=27,matteA=255;
+            SDL_ReadSurfacePixel(cropped,3,3,&matteR,&matteG,&matteB,&matteA);
             auto candidate=[&](int x,int y){
                 Uint8 red=0,green=0,blue=0,alpha=255;
                 if(!SDL_ReadSurfacePixel(cropped,x,y,&red,&green,&blue,&alpha))return false;
-                int high=std::max({int(red),int(green),int(blue)});
-                int low=std::min({int(red),int(green),int(blue)});
-                return alpha<20 || (high<115 && high-low<52);
+                constexpr int tolerance=18;
+                return alpha<20 ||
+                    (std::abs(int(red)-int(matteR))<tolerance &&
+                     std::abs(int(green)-int(matteG))<tolerance &&
+                     std::abs(int(blue)-int(matteB))<tolerance);
             };
             auto enqueue=[&](int x,int y){
                 if(x<0||y<0||x>=frameW||y>=frameH)return;
