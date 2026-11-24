@@ -14,9 +14,16 @@ constexpr float IMAGE_W=1536.f, IMAGE_H=1024.f;
 constexpr float WORLD_W=IMAGE_W*SCALE, WORLD_H=IMAGE_H*SCALE;
 inline game::Vec2 pos(float imageX,float imageY){return {imageX*SCALE,imageY*SCALE};}
 inline game::Vec2 fountainCenter(){return pos(750.f,515.f);} // moved down 40 image pixels
-constexpr float FOUNTAIN_RADIUS=43.f*SCALE;
+// Collision only: extend the basin 12 image pixels upward while leaving
+// its bottom edge unchanged. Visual placement stays at fountainCenter().
+constexpr float FOUNTAIN_RADIUS=49.f*SCALE;
+inline game::Vec2 fountainCollisionCenter(){
+    auto center=fountainCenter();
+    center.y-=6.f*SCALE;
+    return center;
+}
 inline bool fountainBlocked(game::Vec2 world,float radius=0.f){
-    const game::Vec2 c=fountainCenter();
+    const game::Vec2 c=fountainCollisionCenter();
     const float dx=world.x-c.x,dy=world.y-c.y;
     const float limit=FOUNTAIN_RADIUS+radius;
     return dx*dx+dy*dy<=limit*limit;
