@@ -13,7 +13,7 @@ constexpr float SCALE=1.5f;
 constexpr float IMAGE_W=1536.f, IMAGE_H=1024.f;
 constexpr float WORLD_W=IMAGE_W*SCALE, WORLD_H=IMAGE_H*SCALE;
 inline game::Vec2 pos(float imageX,float imageY){return {imageX*SCALE,imageY*SCALE};}
-inline game::Vec2 fountainCenter(){return pos(750.f,475.f);}
+inline game::Vec2 fountainCenter(){return pos(750.f,515.f);} // moved down 40 image pixels
 constexpr float FOUNTAIN_RADIUS=43.f*SCALE;
 inline bool fountainBlocked(game::Vec2 world,float radius=0.f){
     const game::Vec2 c=fountainCenter();
