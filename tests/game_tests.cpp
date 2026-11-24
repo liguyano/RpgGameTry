@@ -64,6 +64,17 @@ int main() {
     assert(shop::collides({480.f,315.f})); // sales counter
     assert(shop::collides({140.f,281.f})); // shelving
     assert(shop::collides({30.f,320.f})); // room perimeter
+    // Formerly the top two thirds of barrels and cabinets were walk-through.
+    assert(shop::collides({129.f,337.f})); // left barrel: upper body
+    assert(shop::collides({843.f,343.f})); // right barrel: upper body
+    assert(shop::collides({798.f,488.f})); // crate above the ground line
+    assert(shop::collides({280.f,167.f})); // tall bookcase front
+    assert(!shop::collides({480.f,480.f})); // clear walkway below counter
+    assert(!shop::collides({480.f,535.f})); // entry spawn stays clear
+    assert(shop::furniture[7].solid==false); // rug has no air wall
+    const auto barrelFootprint=shop::footprint(8);
+    assert(barrelFootprint.y<350.f);
+    assert(shop::sortY(8)>barrelFootprint.y);
     assert(!shop::collides({480.f,410.f})); // central aisle
     Vec2 shopWalker{480.f,410.f};
     shop::move(shopWalker,{0.f,-150.f},1.f/5.f);
