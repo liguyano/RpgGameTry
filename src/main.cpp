@@ -122,6 +122,7 @@ struct ArtAssets {
     std::array<SDL_Texture*,54> familyFrames{};
     std::array<SDL_Texture*,16> heroFrames{};
     std::array<SDL_Texture*,12> villageProps{};
+    std::array<SDL_Texture*,12> fountainFrames{};
 };
 SDL_Texture* loadArt(SDL_Renderer* renderer,const char* filename){
     namespace fs=std::filesystem;
@@ -275,6 +276,80 @@ constexpr std::array<VillageProp,12> VILLAGE_PROPS{{
     {906,588,190,222, 232,681,125,148, 829},  // apple tree
     {1116,587,274,233, 132,177,152,154, 331}  // spreading tree
 }};
+
+// spring.png is a 4-column x 3-row sheet with twelve phases of the water jet.
+// Load the frames once, removing only the dark matte connected to their edges.
+void loadFountainFrames(SDL_Renderer* renderer,ArtAssets& art){
+#if RPG_HAS_SDL3_IMAGE
+    namespace fs=std::filesystem;
+    fs::path path;
+    for(const auto& candidate:{fs::path("assets/spring.png"),
+                               fs::path("../assets/spring.png"),
+                               fs::path("../../assets/spring.png")}){
+        if(fs::exists(candidate)){path=candidate;break;}
+    }
+    if(path.empty()){std::cerr<<"spring.png missing; fountain disabled\n";return;}
+    SDL_Surface* sheet=IMG_Load(path.string().c_str());
+    if(!sheet){std::cerr<<"spring.png: "<<SDL_GetError()<<"\n";return;}
+    const int cellW=sheet->w/4,cellH=sheet->h/3;
+    for(int frame=0;frame<12;frame++){
+        SDL_Rect source{(frame%4)*cellW,(frame/4)*cellH,cellW,cellH};
+        SDL_Surface* crop=SDL_CreateSurface(cellW,cellH,SDL_PIXELFORMAT_RGBA32);
+        if(!crop)continue;
+        if(SDL_BlitSurface(sheet,&source,crop,nullptr)){
+            std::vector<Uint8> visited(size_t(cellW)*size_t(cellH),0);
+            std::vector<int> pending;
+            pending.reserve(visited.size());
+            auto isBackdrop=[&](int x,int y){
+                Uint8 r=0,g=0,b=0,a=255;
+                if(!SDL_ReadSurfacePixel(crop,x,y,&r,&g,&b,&a))return false;
+                const int maxComponent=std::max({int(r),int(g),int(b)});
+                const int minComponent=std::min({int(r),int(g),int(b)});
+                return a<20 || (maxComponent<40 && maxComponent-minComponent<19);
+            };
+            auto addPixel=[&](int x,int y){
+                if(x<0||y<0||x>=cellW||y>=cellH)return;
+                const size_t idx=size_t(y)*size_t(cellW)+size_t(x);
+                if(visited[idx]||!isBackdrop(x,y))return;
+                visited[idx]=1;
+                pending.push_back(int(idx));
+            };
+            for(int x=0;x<cellW;x++){addPixel(x,0);addPixel(x,cellH-1);}
+            for(int y=0;y<cellH;y++){addPixel(0,y);addPixel(cellW-1,y);}
+            for(size_t i=0;i<pending.size();i++){
+                int idx=pending[i],x=idx%cellW,y=idx/cellW;
+                SDL_WriteSurfacePixel(crop,x,y,0,0,0,0);
+                addPixel(x-1,y);addPixel(x+1,y);addPixel(x,y-1);addPixel(x,y+1);
+            }
+            SDL_Texture* texture=SDL_CreateTextureFromSurface(renderer,crop);
+            if(texture){
+                SDL_SetTextureScaleMode(texture,SDL_SCALEMODE_NEAREST);
+                SDL_SetTextureBlendMode(texture,SDL_BLENDMODE_BLEND);
+                art.fountainFrames[size_t(frame)]=texture;
+            }
+        }
+        SDL_DestroySurface(crop);
+    }
+    SDL_DestroySurface(sheet);
+#else
+    (void)renderer;(void)art;
+#endif
+}
+void drawAnimatedFountain(SDL_Renderer* renderer,const ArtAssets& art,
+                          Vec2 camera,float heroY,float seconds,bool foreground){
+    const float fountainY=village::fountainCenter().y;
+    if((fountainY>heroY)!=foreground)return;
+    const int index=int(seconds*9.f)%12; // twelve frames, nine FPS
+    SDL_Texture* texture=art.fountainFrames[size_t(index)];
+    if(!texture)texture=art.fountainFrames[0];
+    if(!texture)return;
+    const Vec2 center=village::fountainCenter();
+    const float s=village::SCALE;
+    SDL_FRect destination{center.x-camera.x-96.f*s,
+                          center.y-camera.y-160.f*s,192.f*s,200.f*s};
+    SDL_RenderTexture(renderer,texture,nullptr,&destination);
+}
+
 void loadVillageProps(SDL_Renderer* renderer,ArtAssets& art){
 #if RPG_HAS_SDL3_IMAGE
     namespace fs=std::filesystem;
@@ -474,6 +549,7 @@ ArtAssets loadArtAssets(SDL_Renderer* renderer){
     loadFamilyFrames(renderer,result);
     loadHeroFrames(renderer,result);
     loadVillageProps(renderer,result);
+    loadFountainFrames(renderer,result);
     if(!result.home||!result.village||!result.outskirts)
         std::cerr<<"AI art missing: extract art pack so assets/*.bmp exists. Using fallback visuals.\n";
     return result;
@@ -491,6 +567,8 @@ void destroyArtAssets(ArtAssets& art){
     for(SDL_Texture* t:art.heroFrames)
         if(t)SDL_DestroyTexture(t);
     for(SDL_Texture* t:art.villageProps)
+        if(t)SDL_DestroyTexture(t);
+    for(SDL_Texture* t:art.fountainFrames)
         if(t)SDL_DestroyTexture(t);
 }
 void color(SDL_Renderer* r,Uint8 red,Uint8 green,Uint8 blue,Uint8 alpha=255){
@@ -1340,6 +1418,7 @@ int main(int argc,char** argv){
                 SDL_FRect bg{-camera.x,-camera.y,village::WORLD_W,village::WORLD_H};
                 SDL_RenderTexture(renderer,art.village,nullptr,&bg);
                 drawVillageProps(renderer,art,camera,world.hero.pos.y,false);
+                drawAnimatedFountain(renderer,art,camera,world.hero.pos.y,world.time,false);
                 for(int i=0;i<3;i++){
                     Character c=VILLAGERS[size_t(i)];
                     c.p=npcPosition(world,i);
@@ -1360,6 +1439,20 @@ int main(int argc,char** argv){
                             auto a=poly.points[i],b=poly.points[(i+1)%poly.count];
                             color(renderer,60,190,255,210);
                             SDL_RenderLine(renderer,a.x-camera.x,a.y-camera.y,b.x-camera.x,b.y-camera.y);
+                        }
+                    }
+                    {
+                        const Vec2 center=village::fountainCenter();
+                        const float radius=village::FOUNTAIN_RADIUS;
+                        color(renderer,245,193,76,245);
+                        for(int j=0;j<48;j++){
+                            const float a=float(j)*6.2831853f/48.f;
+                            const float b=float(j+1)*6.2831853f/48.f;
+                            SDL_RenderLine(renderer,
+                                center.x-camera.x+radius*std::cos(a),
+                                center.y-camera.y+radius*std::sin(a),
+                                center.x-camera.x+radius*std::cos(b),
+                                center.y-camera.y+radius*std::sin(b));
                         }
                     }
                     for(const auto& bridge:village::bridgePassages()){
@@ -1392,9 +1485,11 @@ int main(int argc,char** argv){
                 drawKnight(renderer,heroScreen,world.hero.facing,world.hero.slashTimer,world.hero.hurtTimer>0);
             else drawYoungHero(renderer,heroScreen);
         }
-        if(world.scene==Scene::VILLAGE && world.largeVillage)
-            drawVillageProps(renderer,art,village::camera(world.hero.pos),
-                             world.hero.pos.y,true);
+        if(world.scene==Scene::VILLAGE && world.largeVillage){
+            const Vec2 camera=village::camera(world.hero.pos);
+            drawVillageProps(renderer,art,camera,world.hero.pos.y,true);
+            drawAnimatedFountain(renderer,art,camera,world.hero.pos.y,world.time,true);
+        }
         if(world.story<9){
             storyPanel(renderer,world);
             drawInteractPrompt(renderer,world);
