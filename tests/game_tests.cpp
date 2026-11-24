@@ -1,5 +1,6 @@
 #include "game_logic.h"
 #include "village_map.h"
+#include "shop_map.h"
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -55,5 +56,17 @@ int main() {
     auto camera=village::camera({village::WORLD_W,village::WORLD_H});
     assert(camera.x == village::WORLD_W-WIDTH);
     assert(camera.y == village::WORLD_H-HEIGHT);
-    std::cout << "All game and village collision tests passed!\n";
+    // General store entrance, walkable aisle, walls, and furniture collisions.
+    assert(!shop::collides(shop::ARRIVAL));
+    assert(shop::nearDoor(shop::ENTRANCE));
+    assert(!shop::nearDoor(shop::ARRIVAL));
+    assert(shop::nearMerchant({480.f,369.f}));
+    assert(shop::collides({480.f,315.f})); // sales counter
+    assert(shop::collides({140.f,281.f})); // shelving
+    assert(shop::collides({30.f,320.f})); // room perimeter
+    assert(!shop::collides({480.f,410.f})); // central aisle
+    Vec2 shopWalker{480.f,410.f};
+    shop::move(shopWalker,{0.f,-150.f},1.f/5.f);
+    assert(!shop::collides(shopWalker));
+    std::cout << "All game, village and shop collision tests passed!\n";
 }
