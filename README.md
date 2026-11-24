@@ -1,3 +1,26 @@
+## General store: separate room, furniture and buying
+
+The village now has an optional shop interior built from two image assets:
+`assets/shopback.png` fills the 960×640 room and individual props cropped from
+`assets/shopitems.png` create shelves, wooden counters, tables and barrels.
+Their bottom footprints are collidable, and F3 shows the approximate collision
+rectangles. The shopkeeper reuses the existing merchant character graphics.
+
+In the large village, walk south of the shop near image coordinate (1104, 731)
+and press **E** when the **E SHOP** marker appears. The shop may be visited
+without advancing or resetting the chapter quest. Inside, walk toward the
+counter and press **E** to open the general-store purchase menu. Use
+**Up/Down** to select a product, **Enter/E** to buy and **Esc/B** to close.
+Purchases deduct the displayed gold price and put an item in the first open
+backpack slot; out-of-gold and full-inventory conditions show messages.
+Walk back to the entrance and press **E** to return to the village.
+
+The six test goods are health potion, herbs, bread, apple, shield and boots.
+This is a first playable store; buying is implemented, but selling, restocking
+and persistent saves are not yet present. Inventory demo items are unchanged.
+If the new images are missing, the shop retains functional layout with a
+fallback drawn interior or invisible furniture footprints.
+
 # Medieval RPG — The Ashvale Trial
 
 A **playable, self-contained medieval fantasy RPG prototype** built with **C++17 + SDL3 + CMake**, compatible with **GCC / MinGW-w64**. The first milestone focuses on a working gameplay loop, rather than external art assets.
