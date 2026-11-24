@@ -1912,6 +1912,8 @@ int main(int argc,char** argv){
         std::cerr<<"Story notice render target unavailable: "<<SDL_GetError()<<"\\n";
     }
     bool running=true;
+    int noticeStory=world.story;
+    Scene noticeScene=world.scene;
     Uint64 last=SDL_GetPerformanceCounter();
     while(running){
         SDL_Event ev;
@@ -1951,6 +1953,7 @@ int main(int argc,char** argv){
                     useQuickSlot(world,int(ev.key.key-SDLK_1));
                 if(ev.key.key==SDLK_R){
                     reset(world);world.largeVillage=art.expandedVillage;
+                    noticeStory=-1; // reset also redraws if restarted at the same chapter
                 }
                 if(ev.key.key==SDLK_F3)world.showCollision=!world.showCollision;
                 if(ev.key.key==SDLK_F1)world.noticeAge=0.f;
@@ -1967,10 +1970,10 @@ int main(int argc,char** argv){
         float dt=static_cast<float>(now-last)/static_cast<float>(SDL_GetPerformanceFrequency());
         last=now;
         dt=clamp(dt,0.f,0.035f);
-        const int previousStory=world.story;
-        const Scene previousScene=world.scene;
         if(!world.inventoryOpen)update(world,SDL_GetKeyboardState(nullptr),dt);
-        if(world.story!=previousStory || world.scene!=previousScene){
+        if(world.story!=noticeStory || world.scene!=noticeScene){
+            noticeStory=world.story;
+            noticeScene=world.scene;
             world.noticeAge=0.f;
             redrawStoryNotice(renderer,storyNotice,world);
         }
