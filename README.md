@@ -82,7 +82,7 @@ frame of `spring.png`, the game now prefers **two separate transparent PNGs**:
   laid out in 4 columns and 3 rows of 362×362 pixels.
 
 Both layers share exactly the same destination rectangle and anchor, and only
-the **water source rectangle** changes at 9 frames per second. Keep both files
+the **water source rectangle** cycles through the sustained-water frames 3 → 4 → 5 → 4 at 6 frames per second, without the original start-up/retraction frames. Keep both files
 in `assets/` and run `git add assets/fountain_base.png
 assets/fountain_water_12frames.png` followed by a commit and push.
 If either file is absent, the old `spring.png` is displayed as a **single,
