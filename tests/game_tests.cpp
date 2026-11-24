@@ -22,7 +22,9 @@ int main() {
     assert(village::blocked(village::pos(1260,620))); // river
     assert(!village::blocked(village::pos(110,850))); // old oversized cliff air wall removed
     // All obsolete market/fountain/wall rectangles must now be walkable.
-    assert(!village::blocked(village::pos(770,490))); // old fountain
+    assert(village::blocked(village::pos(770,490))); // new fountain basin
+    assert(village::blocked(village::fountainCenter())); // center of pool
+    assert(!village::blocked(village::pos(700,540))); // plaza still accessible
     assert(!village::blocked(village::pos(620,490))); // old west market stand
     assert(!village::blocked(village::pos(1080,470))); // old east market stand
     assert(!village::blocked(village::pos(900,640))); // old street obstruction
