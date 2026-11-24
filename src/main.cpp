@@ -1187,8 +1187,12 @@ void update(World& w,const bool* keys,float dt){
     if(w.won||w.lost) return;
     w.time+=dt;
     if(!w.dialogue.empty()){
-        w.dialogueAge+=dt;
-        return;
+        // The opening narrator text should not force an E/Space press before
+        // the player can simply walk out of the house.
+        const bool walking=keys[SDL_SCANCODE_W]||keys[SDL_SCANCODE_A]||
+                           keys[SDL_SCANCODE_S]||keys[SDL_SCANCODE_D];
+        if(w.speaker=="NARRATOR" && walking)w.dialogue.clear();
+        else {w.dialogueAge+=dt;return;}
     }
     if(w.scene==Scene::HOME)updateFamilyMotion(w.family,w.hero.pos,dt);
     if(w.scene==Scene::VILLAGE && w.largeVillage)
@@ -1875,7 +1879,8 @@ void drawInteractPrompt(SDL_Renderer* r,const World& w){
             const Vec2 target=atDoor?shop::ENTRANCE:shop::SHOPKEEPER;
             rect(r,int(target.x)-20,int(target.y)-72,40,27,34,35,43);
             outline(r,int(target.x)-20,int(target.y)-72,40,27,215,182,114);
-            fillText(r,"E",int(target.x)-6,int(target.y)-66,3,250,226,154);
+            fillText(r,atDoor?"OUT":"E",int(target.x)-(atDoor?14:6),
+                     int(target.y)-66,atDoor?2:3,250,226,154);
         }
         return;
     }
@@ -1897,8 +1902,21 @@ void drawInteractPrompt(SDL_Renderer* r,const World& w){
     }
     rect(r,int(target.x)-20,int(target.y)-77,40,29,34,35,43);
     outline(r,int(target.x)-20,int(target.y)-77,40,29,215,182,114);
-    fillText(r,"E",int(target.x)-5,int(target.y)-70,3,250,226,154);
+    const bool automaticDoor=(w.scene==Scene::HOME && w.story==3)||
+        (w.scene==Scene::VILLAGE && w.story==7);
+    fillText(r,automaticDoor?"GO":"E",int(target.x)-(automaticDoor?12:5),
+             int(target.y)-70,automaticDoor?2:3,250,226,154);
     if(w.scene==Scene::VILLAGE){
+        Vec2 homeDoor=w.largeVillage?village::pos(405.f,362.f):Vec2{400.f,275.f};
+        if(withinRange(w.hero.pos,homeDoor,104.f)){
+            if(w.largeVillage){
+                const Vec2 camera=village::camera(w.hero.pos);
+                homeDoor.x-=camera.x;homeDoor.y-=camera.y;
+            }
+            rect(r,int(homeDoor.x)-39,int(homeDoor.y)-78,78,31,34,35,43);
+            outline(r,int(homeDoor.x)-39,int(homeDoor.y)-78,78,31,215,182,114);
+            fillText(r,"HOME",int(homeDoor.x)-27,int(homeDoor.y)-69,2,250,226,154);
+        }
         Vec2 door=w.largeVillage?SHOP_VILLAGE_ENTRY:Vec2{670.f,425.f};
         if(withinRange(w.hero.pos,door,125.f)){
             if(w.largeVillage){
