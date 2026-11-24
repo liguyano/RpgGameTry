@@ -124,11 +124,12 @@ inline const std::array<Polygon,4>& terrain(){
     return zones;
 }
 inline const std::array<Rect,3>& bridgePassages(){
-    // Bridges are the only legal crossing through the river collision.
+    // Connect the actual bridge deck to *both banks*. The river polygons
+    // extend beyond the painted deck and formerly trapped players at its end.
     static const std::array<Rect,3> bridges{{
-        {1186*SCALE,346*SCALE,144*SCALE,55*SCALE}, // upper bridge
-        {1195*SCALE,729*SCALE,158*SCALE,48*SCALE}, // mill bridge
-        {1022*SCALE,940*SCALE,107*SCALE,41*SCALE}  // dock planks
+        {1155*SCALE,335*SCALE,236*SCALE,82*SCALE}, // east / upper bridge
+        {1175*SCALE,715*SCALE,213*SCALE,75*SCALE}, // mill bridge
+        {1000*SCALE,930*SCALE,152*SCALE,65*SCALE}  // dock planks
     }};
     return bridges;
 }
@@ -138,11 +139,18 @@ inline bool blocked(game::Vec2 world,float radius=11.f){
     for(const auto& obstacle:obstacles())
         if(inPolygon(world,obstacle,radius))return true;
     if(fountainBlocked(world,radius))return true;
-    for(const auto& terrainZone:terrain()){
-        bool crossing=false;
-        for(auto bridge:bridgePassages())if(inRect(world,bridge,0.f)){crossing=true;break;}
-        if(!crossing && inPolygon(world,terrainZone,radius))return true;
+    // Once the player's center is on a bridge, the river collision must
+    // not also reject them. Keep this after solid houses/trees and fountain.
+    bool onBridge=false;
+    for(const auto bridge:bridgePassages()){
+        if(world.x>=bridge.x+radius && world.x<=bridge.x+bridge.w-radius &&
+           world.y>=bridge.y+radius && world.y<=bridge.y+bridge.h-radius){
+            onBridge=true;break;
+        }
     }
+    if(!onBridge)
+        for(const auto& terrainZone:terrain())
+            if(inPolygon(world,terrainZone,radius))return true;
     // Do not collide with legacy fountain, stalls or wall rectangles:
     // those objects no longer exist in the new village ground map.
     return false;
