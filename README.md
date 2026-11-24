@@ -81,8 +81,7 @@ frame of `spring.png`, the game now prefers **two separate transparent PNGs**:
 - `assets/fountain_water_12frames.png`: RGBA water animation, 1448×1086,
   laid out in 4 columns and 3 rows of 362×362 pixels.
 
-Both layers share exactly the same destination rectangle and anchor, and only
-the **water source rectangle** cycles through the sustained-water frames 3 → 4 → 5 → 4 at 6 frames per second, without the original start-up/retraction frames. Keep both files
+Both layers share exactly the same destination rectangle and anchor. The water image now stays on one **full-height jet frame**, while translucent water streaks move continuously **downward** through the central stream and both side falls, with splashes where they hit the basin. The stone basin never moves and the jet never retracts. Keep both files
 in `assets/` and run `git add assets/fountain_base.png
 assets/fountain_water_12frames.png` followed by a commit and push.
 If either file is absent, the old `spring.png` is displayed as a **single,
