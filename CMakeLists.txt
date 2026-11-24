@@ -41,6 +41,14 @@ if(WIN32 AND EXISTS "${SDL3_IMAGE_BUNDLED_PREFIX}/lib/cmake/SDL3_image/SDL3_imag
 endif()
 find_package(SDL3_image CONFIG QUIET)
 
+# Optional SDL3_ttf 3.2.2 development SDK alongside SDL3 and SDL3_image.
+set(SDL3_TTF_BUNDLED_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/SDL3_ttf-3.2.2/${SDL3_MINGW_ARCH}")
+if(WIN32 AND EXISTS "${SDL3_TTF_BUNDLED_PREFIX}/lib/cmake/SDL3_ttf/SDL3_ttfConfig.cmake")
+    list(PREPEND CMAKE_PREFIX_PATH "${SDL3_TTF_BUNDLED_PREFIX}")
+    message(STATUS "Using local SDL3_ttf: ${SDL3_TTF_BUNDLED_PREFIX}")
+endif()
+find_package(SDL3_ttf CONFIG QUIET)
+
 add_executable(medieval_rpg src/main.cpp)
 target_include_directories(medieval_rpg PRIVATE src)
 target_link_libraries(medieval_rpg PRIVATE SDL3::SDL3)
@@ -51,6 +59,21 @@ if(TARGET SDL3_image::SDL3_image)
 else()
     target_compile_definitions(medieval_rpg PRIVATE RPG_HAS_SDL3_IMAGE=0)
     message(WARNING "SDL3_image not found: game runs with legacy BMP and procedural fallback only")
+endif()
+if(TARGET SDL3_ttf::SDL3_ttf)
+    target_link_libraries(medieval_rpg PRIVATE SDL3_ttf::SDL3_ttf)
+    target_compile_definitions(medieval_rpg PRIVATE RPG_HAS_SDL3_TTF=1)
+    message(STATUS "SDL3_ttf font rendering enabled")
+else()
+    target_compile_definitions(medieval_rpg PRIVATE RPG_HAS_SDL3_TTF=0)
+    message(WARNING "SDL3_ttf not found; using built-in pixel text")
+endif()
+if(WIN32 AND TARGET SDL3_ttf::SDL3_ttf AND EXISTS "${SDL3_TTF_BUNDLED_PREFIX}/bin")
+    add_custom_command(TARGET medieval_rpg POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${SDL3_TTF_BUNDLED_PREFIX}/bin"
+            "$<TARGET_FILE_DIR:medieval_rpg>"
+        COMMENT "Copying SDL3_ttf DLLs and dependencies")
 endif()
 if(WIN32 AND EXISTS "${SDL3_IMAGE_BUNDLED_PREFIX}/bin/SDL3_image.dll")
     add_custom_command(TARGET medieval_rpg POST_BUILD
