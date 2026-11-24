@@ -27,7 +27,28 @@ inline constexpr std::array<Prop,13> furniture{{
     {536,712,137,99, 657,481,76,66,535,true}, // table
     {1246,717,112,100, 235,494,75,66,552,true} // chest
 }};
+// A barrel, chest or cabinet is solid from near its visible top all the way
+// to the floor. Small rugs/cloth decorations remain non-solid.
+inline constexpr float collisionTopFraction(size_t index){
+    // tall shelves, counters, market stands, rugs, barrels, crates, tables
+    if(index==7)return 1.f;
+    if(index==8||index==9)return 0.10f; // barrels are rounded, not hollow
+    if(index==10||index==12)return 0.13f; // crates and chest
+    if(index==11)return 0.25f;            // small wooden table
+    if(index==5||index==6)return 0.22f;  // display and writing table
+    return 0.18f;                         // counter and high shelves
+}
 struct Rect {float x,y,w,h;};
+inline Rect footprint(size_t index){
+    const Prop& p=furniture[index];
+    const float margin=(index==8||index==9)?7.f:4.f;
+    const float top=p.y+p.h*collisionTopFraction(index);
+    return {p.x+margin,top,p.w-2.f*margin,p.y+p.h-3.f-top};
+}
+inline float sortY(size_t index){
+    const Prop& p=furniture[index];
+    return p.y+p.h-3.f;
+}
 inline constexpr float MIN_X=42.f,MAX_X=918.f,MIN_Y=140.f,MAX_Y=602.f;
 inline constexpr game::Vec2 ENTRANCE{480.f,592.f};
 inline constexpr game::Vec2 SHOPKEEPER{480.f,240.f};
@@ -35,14 +56,15 @@ inline constexpr game::Vec2 ARRIVAL{480.f,535.f};
 inline bool collides(game::Vec2 position,float radius=12.f) {
     if(position.x-radius<MIN_X||position.x+radius>MAX_X||
        position.y-radius<MIN_Y||position.y+radius>MAX_Y)return true;
-    for(const auto& p:furniture){
-        if(!p.solid)continue;
-        // Only the furniture footprint is solid (not decorative height).
-        const float left=p.x+4.f,right=p.x+p.w-4.f;
-        const float bottom=p.y+p.h-4.f;
-        const float top=p.y+p.h*0.57f;
-        if(position.x+radius>left && position.x-radius<right &&
-           position.y+radius>top && position.y-radius<bottom)return true;
+    for(size_t i=0;i<furniture.size();i++){
+        if(!furniture[i].solid)continue;
+        const Rect box=footprint(i);
+        // Player collision is evaluated at their feet with a circular radius,
+        // so no part of the barrel or display can be walked through.
+        const float nearestX=game::clamp(position.x,box.x,box.x+box.w);
+        const float nearestY=game::clamp(position.y,box.y,box.y+box.h);
+        if(game::distanceSquared(position,{nearestX,nearestY})<radius*radius)
+            return true;
     }
     return false;
 }
