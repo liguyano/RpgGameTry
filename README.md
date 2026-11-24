@@ -72,6 +72,18 @@ No new library is required beyond the existing SDL3 and SDL3_image SDKs.
 
 The game now loads `assets/hero.png` through SDL3_image and extracts **16 walking frames** (four frames for each of down, left, right and up). WASD picks the facing row and advances the animation; standing still displays the initial pose. The hero sprites are drawn in the home, scrolling village and outskirts. The image is a labeled concept sheet rather than a transparent production atlas, so each frame's connected dark background is automatically removed on load and some edge artifacts may remain. If the PNG is unavailable, the original program-drawn hero is used.
 
+## New 12-frame fountain animation
+
+The game now prefers the newly generated 4×3 (12-frame) fountain PNG,
+using its **original filename** `水しぶきの噴水アニメーション_spritesheet.png`
+or any `assets/*.png` filename containing `ani` (case-insensitive).
+There is **no need to rename** the downloaded image. Copy it into
+`assets/` and commit/push it to share it with other machines.
+CMake copies the asset directory into the executable's output folder when
+building. The image plays at 10 FPS, with no added synthetic droplets.
+The previous split assets remain available as a **static fallback**, with
+`spring.png` as the last-resort static fallback.
+
 ## Split fountain sprites (stable basin + moving water)
 
 To eliminate the shaking caused by slightly different stone basins on every
