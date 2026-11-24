@@ -90,6 +90,68 @@ void updateFamilyMotion(std::array<FamilyMotion,3>& family,Vec2 hero,float dt){
     }
 }
 
+// Eight additional citizens follow small deterministic routes near their spawn.
+// World-space anchors are in the 1536x1024 village image.
+constexpr int VILLAGER_COUNT=8;
+struct VillagerMotion {
+    Vec2 position{};
+    Vec2 home{};
+    Vec2 facing{0.f,1.f};
+    Vec2 destination{};
+    float pause=0.f;
+    float walkingTime=0.f;
+    int step=0;
+    bool moving=false;
+};
+constexpr std::array<Vec2,VILLAGER_COUNT> EXTRA_VILLAGER_START{{
+    {540.f,608.f},{322.f,418.f},{980.f,561.f},{514.f,755.f},
+    {850.f,784.f},{690.f,425.f},{918.f,728.f},{400.f,722.f}
+}};
+inline std::array<VillagerMotion,VILLAGER_COUNT> initialVillagers(){
+    std::array<VillagerMotion,VILLAGER_COUNT> result{};
+    for(int i=0;i<VILLAGER_COUNT;i++){
+        const Vec2 home=village::pos(EXTRA_VILLAGER_START[size_t(i)].x,
+                                     EXTRA_VILLAGER_START[size_t(i)].y);
+        result[size_t(i)].home=home;
+        result[size_t(i)].position=home;
+        result[size_t(i)].destination=home;
+        result[size_t(i)].pause=0.5f+float(i%4)*0.6f;
+    }
+    return result;
+}
+void updateVillagerMotion(std::array<VillagerMotion,VILLAGER_COUNT>& npcs,Vec2 hero,float dt){
+    for(int i=0;i<VILLAGER_COUNT;i++){
+        auto& npc=npcs[size_t(i)];
+        npc.moving=false;
+        if(npc.pause>0.f){npc.pause=std::max(0.f,npc.pause-dt);continue;}
+        if(withinRange(npc.position,npc.destination,3.f)){
+            npc.step++;
+            const float angle=float((npc.step*3+i*5)%16)*0.39269908f;
+            const float distance=float(22+(npc.step+i)%3*13)*village::SCALE;
+            const Vec2 wanted{npc.home.x+std::cos(angle)*distance,
+                              npc.home.y+std::sin(angle)*distance};
+            npc.destination=village::blocked(wanted,11.f)?npc.home:wanted;
+            npc.pause=0.6f+float((npc.step+i)%4)*0.45f;
+            continue;
+        }
+        const Vec2 delta{npc.destination.x-npc.position.x,
+                         npc.destination.y-npc.position.y};
+        const Vec2 direction=normalized(delta);
+        const float speed=39.f;
+        const Vec2 candidate{npc.position.x+direction.x*speed*dt,
+                             npc.position.y+direction.y*speed*dt};
+        if(village::blocked(candidate,11.f)||withinRange(candidate,hero,28.f)){
+            npc.pause=0.9f;
+            npc.destination=npc.home;
+            continue;
+        }
+        npc.position=candidate;
+        npc.facing=direction;
+        npc.walkingTime+=dt;
+        npc.moving=true;
+    }
+}
+
 struct World {
     Scene scene=Scene::HOME;
     int story=0;
@@ -101,6 +163,7 @@ struct World {
     bool showCollision=false;
     Player hero;
     std::array<FamilyMotion,3> family{initialFamily(0),initialFamily(1),initialFamily(2)};
+    std::array<VillagerMotion,VILLAGER_COUNT> villagers=initialVillagers();
     std::vector<Enemy> enemies;
     bool won=false, lost=false;
     float time=0;
@@ -126,6 +189,7 @@ struct ArtAssets {
     SDL_Texture* fountainBase=nullptr;
     SDL_Texture* fountainWater=nullptr;
     SDL_Texture* fountainAnimation=nullptr;
+    std::array<SDL_Texture*,8*4*4> villagerFrames{};
 };
 SDL_Texture* loadArt(SDL_Renderer* renderer,const char* filename){
     namespace fs=std::filesystem;
@@ -958,6 +1022,8 @@ void update(World& w,const bool* keys,float dt){
         return;
     }
     if(w.scene==Scene::HOME)updateFamilyMotion(w.family,w.hero.pos,dt);
+    if(w.scene==Scene::VILLAGE && w.largeVillage)
+        updateVillagerMotion(w.villagers,w.hero.pos,dt);
     w.hero.slashTimer=std::max(0.f,w.hero.slashTimer-dt);
     w.hero.moving=false;
     w.hero.hurtTimer=std::max(0.f,w.hero.hurtTimer-dt);
@@ -1413,6 +1479,27 @@ void interact(World& w){
         }
     }
     if(w.scene==Scene::VILLAGE){
+        if(w.largeVillage){
+            constexpr std::array<const char*,VILLAGER_COUNT> names{{
+                "FARMER","VILLAGER","YOUNG TRAVELER","VILLAGE GIRL",
+                "BLACKSMITH","SISTER","FARMER","VILLAGER"
+            }};
+            constexpr std::array<const char*,VILLAGER_COUNT> lines{{
+                "THE FIELDS NEED RAIN. I HOPE THE HARVEST WILL BE GOOD.",
+                "ASHVALE IS A PEACEFUL VILLAGE. STAY FOR A WHILE!",
+                "ONE DAY I WILL TRAVEL BEYOND THE MOUNTAINS.",
+                "THE FLOWERS NEAR THE SQUARE ARE BEAUTIFUL TODAY!",
+                "GOOD STEEL TAKES PATIENCE, FIRE, AND A STEADY HAND.",
+                "MAY YOUR JOURNEY BE SAFE, DEAR TRAVELER.",
+                "THE MARKET IS BUSY. I SHOULD FINISH MY WORK.",
+                "DID YOU HEAR THE FOUNTAIN? IT NEVER STOPS FLOWING."
+            }};
+            for(int i=0;i<VILLAGER_COUNT;i++)
+                if(withinRange(w.hero.pos,w.villagers[size_t(i)].position,65.f)){
+                    showDialogue(w,names[size_t(i)],lines[size_t(i)]);
+                    return;
+                }
+        }
         for(int i=0;i<3;i++)if(withinRange(w.hero.pos,npcPosition(w,i),75)){
             showDialogue(w,VILLAGERS[size_t(i)].name,"MAY THE ROAD BE KIND TO YOU.");return;
         }
