@@ -161,6 +161,13 @@ struct World {
     bool justArrived=true;
     bool largeVillage=false;
     bool showCollision=false;
+    bool inventoryOpen=false;
+    int inventorySelection=0;
+    std::array<int,24> bag{{1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,0,0,0,0,0,0,0,0}};
+    std::array<int,6> equipped{{0,0,0,0,0,0}};
+    std::array<int,8> quickSlots{{1,7,8,9,0,0,0,0}};
+    int quickSelected=0;
+    int gold=75;
     Player hero;
     std::array<FamilyMotion,3> family{initialFamily(0),initialFamily(1),initialFamily(2)};
     std::array<VillagerMotion,VILLAGER_COUNT> villagers=initialVillagers();
@@ -189,6 +196,8 @@ struct ArtAssets {
     SDL_Texture* fountainBase=nullptr;
     SDL_Texture* fountainWater=nullptr;
     SDL_Texture* fountainAnimation=nullptr;
+    SDL_Texture* uiAtlas=nullptr;
+    SDL_Texture* itemsAtlas=nullptr;
     std::array<SDL_Texture*,8*4*4> villagerFrames{};
 };
 SDL_Texture* loadArt(SDL_Renderer* renderer,const char* filename){
@@ -780,6 +789,8 @@ ArtAssets loadArtAssets(SDL_Renderer* renderer){
     loadHeroFrames(renderer,result);
     loadVillageProps(renderer,result);
     loadVillagerFrames(renderer,result);
+    result.uiAtlas=loadArt(renderer,"ui.png");
+    result.itemsAtlas=loadArt(renderer,"items.png");
     result.fountainBase=loadArt(renderer,"fountain_base.png");
     result.fountainAnimation=loadNewFountainAnimation(renderer);
     if(!result.fountainAnimation)
@@ -814,6 +825,8 @@ void destroyArtAssets(ArtAssets& art){
     if(art.fountainBase)SDL_DestroyTexture(art.fountainBase);
     if(art.fountainWater)SDL_DestroyTexture(art.fountainWater);
     if(art.fountainAnimation)SDL_DestroyTexture(art.fountainAnimation);
+    if(art.uiAtlas)SDL_DestroyTexture(art.uiAtlas);
+    if(art.itemsAtlas)SDL_DestroyTexture(art.itemsAtlas);
     for(SDL_Texture* t:art.villagerFrames)if(t)SDL_DestroyTexture(t);
 }
 void color(SDL_Renderer* r,Uint8 red,Uint8 green,Uint8 blue,Uint8 alpha=255){
