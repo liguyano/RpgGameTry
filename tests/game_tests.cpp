@@ -18,10 +18,14 @@ int main() {
     auto z=normalized({0,0});
     assert(z.x==0 && z.y==0);
     // The village's collision overlay (F3) must match these world-space zones.
-    assert(village::blocked(village::pos(400,200))); // house
+    assert(village::blocked(village::pos(403,304))); // house foundation
     assert(village::blocked(village::pos(1260,620))); // river
     assert(village::blocked(village::pos(110,850))); // cliff
     assert(village::blocked(village::pos(770,490))); // fountain
+    assert(village::blocked(village::pos(872,461))); // oak trunk
+    assert(!village::blocked(village::pos(405,210))); // roof is passable / occluded visually
+    assert(!village::blocked(village::pos(850,395))); // crown is passable
+    assert(!village::blocked(village::pos(400,280))); // can walk behind a house
     assert(!village::blocked(village::pos(1250,375))); // bridge
     assert(!village::blocked(village::pos(700,565))); // village street
     assert(!village::blocked(village::pos(545,755))); // spawn
