@@ -6,6 +6,7 @@
 #include <SDL3_image/SDL_image.h>
 #endif
 #include <array>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
@@ -545,7 +546,7 @@ void moveBody(Vec2& p,Vec2 velocity,float dt,float radius){
 void fillText(SDL_Renderer* r,const std::string& text,int x,int y,int scale,
               Uint8 red,Uint8 green,Uint8 blue){
     // Compact 3x5 bitmap alphabet. No SDL_ttf or asset files required.
-    static const std::array<std::pair<char,const char*>,43> glyphs{{
+    static const std::array<std::pair<char,const char*>,72> glyphs{{
         {'A',"010101111101101"},{'B',"110101110101110"},{'C',"011100100100011"},
         {'D',"110101101101110"},{'E',"111100110100111"},{'F',"111100110100100"},
         {'G',"011100101101011"},{'H',"101101111101101"},{'I',"111010010010111"},
@@ -560,7 +561,36 @@ void fillText(SDL_Renderer* r,const std::string& text,int x,int y,int scale,
         {'6',"011100110101010"},{'7',"111001010010010"},{'8',"010101010101010"},
         {'9',"010101011001110"},{':',"000010000010000"},{'/',"001001010100100"},
         {'-',"000000111000000"},{'.',"000000000000010"},{'!',"010010010000010"},
-        {' ',"000000000000000"}
+        {' ',"000000000000000"},
+        {'a',"000011101111101"},
+        {'b',"100110101101110"},
+        {'c',"000011100100011"},
+        {'d',"001011101101011"},
+        {'e',"000010101110011"},
+        {'f',"011100110100100"},
+        {'g',"000011101011110"},
+        {'h',"100110101101101"},
+        {'i',"010000010010010"},
+        {'j',"001000001101010"},
+        {'k',"100101110110101"},
+        {'l',"110010010010011"},
+        {'m',"000110111111101"},
+        {'n',"000110101101101"},
+        {'o',"000010101101010"},
+        {'p',"000110101110100"},
+        {'q',"000011101011001"},
+        {'r',"000101110100100"},
+        {'s',"000011110011110"},
+        {'t',"010111010010011"},
+        {'u',"000101101101011"},
+        {'v',"000101101101010"},
+        {'w',"000101111111010"},
+        {'x',"000101010010101"},
+        {'y',"000101101011110"},
+        {'z',"000111001010111"},
+        {'?', "111001010000010"},
+        {',', "000000000010100"},
+        {'\'', "010010000000000"}
     }};
     int start=x;
     for(char ch:text){
@@ -974,6 +1004,13 @@ void storyPanel(SDL_Renderer* r,const World& w) {
     outline(r,13,HEIGHT-42,WIDTH-26,31,207,171,99);
     fillText(r,"WASD MOVE  E TALK / INTERACT  SPACE CONTINUE",27,HEIGHT-32,2,230,204,162);
 }
+std::string lowercaseAscii(std::string value){
+    for(char& ch:value){
+        const unsigned char c=static_cast<unsigned char>(ch);
+        ch=static_cast<char>(std::tolower(c));
+    }
+    return value;
+}
 void drawDialogue(SDL_Renderer* r,const World& w,const ArtAssets& art){
     if(w.dialogue.empty())return;
     SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_BLEND);
@@ -985,7 +1022,7 @@ void drawDialogue(SDL_Renderer* r,const World& w,const ArtAssets& art){
     outline(r,50,HEIGHT-199,WIDTH-100,150,110,88,66);
     rect(r,72,HEIGHT-223,210,34,83,55,44);
     outline(r,72,HEIGHT-223,210,34,216,174,95);
-    fillText(r,w.speaker,91,HEIGHT-214,3,243,217,156);
+    fillText(r,lowercaseAscii(w.speaker),91,HEIGHT-214,3,243,217,156);
     SDL_Texture* portrait=art.hero;
     if(w.speaker=="MOTHER")portrait=art.mother;
     else if(w.speaker=="FATHER" || w.speaker=="ELDER ROWAN")portrait=art.father;
@@ -995,8 +1032,8 @@ void drawDialogue(SDL_Renderer* r,const World& w,const ArtAssets& art){
         SDL_RenderTexture(r,portrait,nullptr,&dst);
         outline(r,71,HEIGHT-170,105,106,218,177,109);
     }
-    fillText(r,w.dialogue,portrait?193:75,HEIGHT-169,3,242,232,213);
-    fillText(r,"PRESS SPACE OR E",WIDTH-279,HEIGHT-75,2,232,194,112);
+    fillText(r,lowercaseAscii(w.dialogue),portrait?193:75,HEIGHT-169,3,242,232,213);
+    fillText(r,"press space or e",WIDTH-279,HEIGHT-75,2,232,194,112);
 }
 void showDialogue(World& w,const char* speaker,const char* words) {
     w.speaker=speaker;w.dialogue=words;
