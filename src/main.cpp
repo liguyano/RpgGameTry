@@ -116,6 +116,7 @@ struct ArtAssets {
     SDL_Texture* lily=nullptr;
     std::array<SDL_Texture*,36> familyFrames{};
     std::array<SDL_Texture*,16> heroFrames{};
+    std::array<SDL_Texture*,12> villageProps{};
 };
 SDL_Texture* loadArt(SDL_Renderer* renderer,const char* filename){
     namespace fs=std::filesystem;
@@ -245,6 +246,103 @@ bool drawAnimatedHero(SDL_Renderer* r,const ArtAssets& art,
     return true;
 }
 
+
+// Decorations are separate from the ground layer. "houseAndTree.png" is a
+// presentation sheet, so these are individual approximated source rectangles.
+// Coordinates below use 1408x1056 reference art dimensions and automatically
+// scale to the decoded actual image dimensions.
+struct VillageProp {
+    int atlasX,atlasY,atlasW,atlasH;
+    float mapX,mapY,mapW,mapH; // village image coordinates (1536x1024)
+    float feetY;               // sorting boundary in image coordinates
+};
+constexpr std::array<VillageProp,12> VILLAGE_PROPS{{
+    {18,28,220,265, 310,122,190,203, 312},     // cottage
+    {246,24,298,275, 558,115,225,214, 329},    // thatched farmhouse
+    {556,23,299,276, 865,187,200,190, 377},    // tavern
+    {889,28,243,271, 1007,509,194,190, 699},   // shop
+    {54,321,290,270, 321,483,212,193, 676},    // stone house
+    {360,315,278,270, 611,678,212,179, 857},   // blue-roof house
+    {30,581,226,236, 800,314,150,163, 477},    // oak
+    {265,595,180,213, 504,389,112,140, 529},   // green deciduous tree
+    {482,587,171,229, 1138,447,120,163, 610}, // pine
+    {646,587,256,228, 1257,171,153,152, 323}, // blossom tree
+    {906,588,190,222, 232,681,125,148, 829},  // apple tree
+    {1116,587,274,233, 132,177,152,154, 331}  // spreading tree
+}};
+void loadVillageProps(SDL_Renderer* renderer,ArtAssets& art){
+#if RPG_HAS_SDL3_IMAGE
+    namespace fs=std::filesystem;
+    fs::path source;
+    for(const fs::path& path:{fs::path("assets/houseAndTree.png"),
+                             fs::path("../assets/houseAndTree.png"),
+                             fs::path("../../assets/houseAndTree.png")}){
+        if(fs::exists(path)){source=path;break;}
+    }
+    if(source.empty())return;
+    SDL_Surface* sheet=IMG_Load(source.string().c_str());
+    if(!sheet){std::cerr<<"Cannot load houseAndTree.png: "<<SDL_GetError()<<"\n";return;}
+    const float sx=float(sheet->w)/1408.f,sy=float(sheet->h)/1056.f;
+    for(size_t i=0;i<VILLAGE_PROPS.size();i++){
+        const auto& prop=VILLAGE_PROPS[i];
+        SDL_Rect src{int(prop.atlasX*sx),int(prop.atlasY*sy),
+                     int(prop.atlasW*sx),int(prop.atlasH*sy)};
+        if(src.x<0||src.y<0||src.w<=0||src.h<=0||
+           src.x+src.w>sheet->w||src.y+src.h>sheet->h)continue;
+        SDL_Surface* crop=SDL_CreateSurface(src.w,src.h,SDL_PIXELFORMAT_RGBA32);
+        if(!crop)continue;
+        if(SDL_BlitSurface(sheet,&src,crop,nullptr)){
+            // Remove only the black matte touching the crop perimeter,
+            // without hollowing out windows, dark roof tiles or shadows.
+            std::vector<Uint8> seen(size_t(src.w)*size_t(src.h),0);
+            std::vector<int> queue;
+            queue.reserve(seen.size());
+            auto dark=[&](int x,int y){
+                Uint8 r=0,g=0,b=0,a=255;
+                if(!SDL_ReadSurfacePixel(crop,x,y,&r,&g,&b,&a))return false;
+                return a<24 || (r<58 && g<58 && b<58);
+            };
+            auto enqueue=[&](int x,int y){
+                if(x<0||y<0||x>=src.w||y>=src.h)return;
+                size_t idx=size_t(y)*size_t(src.w)+size_t(x);
+                if(seen[idx]||!dark(x,y))return;
+                seen[idx]=1;queue.push_back(int(idx));
+            };
+            for(int x=0;x<src.w;x++){enqueue(x,0);enqueue(x,src.h-1);}
+            for(int y=0;y<src.h;y++){enqueue(0,y);enqueue(src.w-1,y);}
+            for(size_t head=0;head<queue.size();++head){
+                int k=queue[head],x=k%src.w,y=k/src.w;
+                SDL_WriteSurfacePixel(crop,x,y,0,0,0,0);
+                enqueue(x-1,y);enqueue(x+1,y);enqueue(x,y-1);enqueue(x,y+1);
+            }
+            art.villageProps[i]=SDL_CreateTextureFromSurface(renderer,crop);
+            if(art.villageProps[i]){
+                SDL_SetTextureScaleMode(art.villageProps[i],SDL_SCALEMODE_NEAREST);
+                SDL_SetTextureBlendMode(art.villageProps[i],SDL_BLENDMODE_BLEND);
+            }
+        }
+        SDL_DestroySurface(crop);
+    }
+    SDL_DestroySurface(sheet);
+#else
+    (void)renderer;(void)art;
+#endif
+}
+void drawVillageProps(SDL_Renderer* renderer,const ArtAssets& art,
+                      Vec2 camera,float heroWorldY,bool foreground){
+    for(size_t i=0;i<VILLAGE_PROPS.size();i++){
+        const auto& p=VILLAGE_PROPS[i];
+        if((p.feetY*village::SCALE>heroWorldY)!=foreground)continue;
+        SDL_Texture* tex=art.villageProps[i];
+        if(!tex)continue;
+        SDL_FRect dst{p.mapX*village::SCALE-camera.x,
+                      p.mapY*village::SCALE-camera.y,
+                      p.mapW*village::SCALE,p.mapH*village::SCALE};
+        if(dst.x>WIDTH || dst.y>HEIGHT || dst.x+dst.w<0 || dst.y+dst.h<0)continue;
+        SDL_RenderTexture(renderer,tex,nullptr,&dst);
+    }
+}
+
 void loadFamilyFrames(SDL_Renderer* r,ArtAssets& art){
 #if RPG_HAS_SDL3_IMAGE
     namespace fs=std::filesystem;
@@ -346,6 +444,7 @@ ArtAssets loadArtAssets(SDL_Renderer* renderer){
     result.lily=loadArt(renderer,"lily.bmp");
     loadFamilyFrames(renderer,result);
     loadHeroFrames(renderer,result);
+    loadVillageProps(renderer,result);
     if(!result.home||!result.village||!result.outskirts)
         std::cerr<<"AI art missing: extract art pack so assets/*.bmp exists. Using fallback visuals.\n";
     return result;
@@ -361,6 +460,8 @@ void destroyArtAssets(ArtAssets& art){
     for(SDL_Texture* t:art.familyFrames)
         if(t)SDL_DestroyTexture(t);
     for(SDL_Texture* t:art.heroFrames)
+        if(t)SDL_DestroyTexture(t);
+    for(SDL_Texture* t:art.villageProps)
         if(t)SDL_DestroyTexture(t);
 }
 void color(SDL_Renderer* r,Uint8 red,Uint8 green,Uint8 blue,Uint8 alpha=255){
@@ -1037,6 +1138,7 @@ int main(int argc,char** argv){
                 const Vec2 camera=village::camera(world.hero.pos);
                 SDL_FRect bg{-camera.x,-camera.y,village::WORLD_W,village::WORLD_H};
                 SDL_RenderTexture(renderer,art.village,nullptr,&bg);
+                drawVillageProps(renderer,art,camera,world.hero.pos.y,false);
                 for(int i=0;i<3;i++){
                     Character c=VILLAGERS[size_t(i)];
                     c.p=npcPosition(world,i);
@@ -1089,6 +1191,9 @@ int main(int argc,char** argv){
                 drawKnight(renderer,heroScreen,world.hero.facing,world.hero.slashTimer,world.hero.hurtTimer>0);
             else drawYoungHero(renderer,heroScreen);
         }
+        if(world.scene==Scene::VILLAGE && world.largeVillage)
+            drawVillageProps(renderer,art,village::camera(world.hero.pos),
+                             world.hero.pos.y,true);
         if(world.story<9){
             storyPanel(renderer,world);
             drawInteractPrompt(renderer,world);
