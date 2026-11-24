@@ -756,49 +756,6 @@ void loadVillagerFrames(SDL_Renderer* renderer,ArtAssets& art){
     (void)renderer;(void)art;
 #endif
 }
-void drawVillagerSprite(SDL_Renderer* renderer,const ArtAssets& art,
-                        int who,Vec2 feet,Vec2 facing,bool moving,float clock,
-                        const Character& fallback){
-    const int direction=std::abs(facing.x)>std::abs(facing.y)?
-        (facing.x<0.f?1:2):(facing.y<0.f?3:0);
-    const int pose=moving?int(clock*7.f)%4:0;
-    const int idx=(who*4+direction)*4+pose;
-    SDL_Texture* texture=art.villagerFrames[size_t(idx)];
-    if(!texture)texture=art.villagerFrames[size_t((who*4+direction)*4)];
-    if(texture){
-        SDL_FRect destination{feet.x-20.f,feet.y-61.f,40.f,66.f};
-        SDL_RenderTexture(renderer,texture,nullptr,&destination);
-    }else{
-        Character npc=fallback;
-        npc.p=feet;
-        drawPerson(renderer,npc);
-    }
-}
-// Story NPCs retain fixed plot coordinates and interactions; additional NPCs
-// stroll near their respective homes. Draw in two passes around the hero.
-void drawVillagePopulation(SDL_Renderer* renderer,const ArtAssets& art,
-                           const World& world,Vec2 camera,bool foreground){
-    const int questType[3]={0,2,6}; // Elder / Merchant / Guard
-    for(int i=0;i<3;i++){
-        const Vec2 location=npcPosition(world,i);
-        if((location.y>world.hero.pos.y)!=foreground)continue;
-        Character npc=VILLAGERS[size_t(i)];
-        npc.p={location.x-camera.x,location.y-camera.y};
-        drawVillagerSprite(renderer,art,questType[i],npc.p,{0.f,1.f},false,
-                           world.time,npc);
-    }
-    constexpr std::array<int,VILLAGER_COUNT> types{{1,3,4,5,6,7,1,3}};
-    for(int i=0;i<VILLAGER_COUNT;i++){
-        const VillagerMotion& motion=world.villagers[size_t(i)];
-        if((motion.position.y>world.hero.pos.y)!=foreground)continue;
-        const Vec2 screen{motion.position.x-camera.x,motion.position.y-camera.y};
-        if(screen.x<-80.f||screen.y<-95.f||screen.x>WIDTH+80.f||screen.y>HEIGHT+75.f)continue;
-        Character fallback{{0,0},"VILLAGER",106,132,85,false,false};
-        drawVillagerSprite(renderer,art,types[size_t(i)],screen,motion.facing,
-                           motion.moving,motion.walkingTime,fallback);
-    }
-}
-
 ArtAssets loadArtAssets(SDL_Renderer* renderer){
     ArtAssets result;
 #if RPG_HAS_SDL3_IMAGE
@@ -1230,6 +1187,49 @@ void drawPerson(SDL_Renderer* r,const Character& c) {
     if(c.older)rect(r,x-6,y-height-3,12,7,166,147,119);
     if(c.child)rect(r,x-14,y-height-15,6,8,159,82,56);
 }
+void drawVillagerSprite(SDL_Renderer* renderer,const ArtAssets& art,
+                        int who,Vec2 feet,Vec2 facing,bool moving,float clock,
+                        const Character& fallback){
+    const int direction=std::abs(facing.x)>std::abs(facing.y)?
+        (facing.x<0.f?1:2):(facing.y<0.f?3:0);
+    const int pose=moving?int(clock*7.f)%4:0;
+    const int idx=(who*4+direction)*4+pose;
+    SDL_Texture* texture=art.villagerFrames[size_t(idx)];
+    if(!texture)texture=art.villagerFrames[size_t((who*4+direction)*4)];
+    if(texture){
+        SDL_FRect destination{feet.x-20.f,feet.y-61.f,40.f,66.f};
+        SDL_RenderTexture(renderer,texture,nullptr,&destination);
+    }else{
+        Character npc=fallback;
+        npc.p=feet;
+        drawPerson(renderer,npc);
+    }
+}
+// Story NPCs retain fixed plot coordinates and interactions; additional NPCs
+// stroll near their respective homes. Draw in two passes around the hero.
+void drawVillagePopulation(SDL_Renderer* renderer,const ArtAssets& art,
+                           const World& world,Vec2 camera,bool foreground){
+    const int questType[3]={0,2,6}; // Elder / Merchant / Guard
+    for(int i=0;i<3;i++){
+        const Vec2 location=npcPosition(world,i);
+        if((location.y>world.hero.pos.y)!=foreground)continue;
+        Character npc=VILLAGERS[size_t(i)];
+        npc.p={location.x-camera.x,location.y-camera.y};
+        drawVillagerSprite(renderer,art,questType[i],npc.p,{0.f,1.f},false,
+                           world.time,npc);
+    }
+    constexpr std::array<int,VILLAGER_COUNT> types{{1,3,4,5,6,7,1,3}};
+    for(int i=0;i<VILLAGER_COUNT;i++){
+        const VillagerMotion& motion=world.villagers[size_t(i)];
+        if((motion.position.y>world.hero.pos.y)!=foreground)continue;
+        const Vec2 screen{motion.position.x-camera.x,motion.position.y-camera.y};
+        if(screen.x<-80.f||screen.y<-95.f||screen.x>WIDTH+80.f||screen.y>HEIGHT+75.f)continue;
+        Character fallback{{0,0},"VILLAGER",106,132,85,false,false};
+        drawVillagerSprite(renderer,art,types[size_t(i)],screen,motion.facing,
+                           motion.moving,motion.walkingTime,fallback);
+    }
+}
+
 void drawYoungHero(SDL_Renderer* r,Vec2 p) {
     int x=int(p.x),y=int(p.y);
     rect(r,x-13,y+12,27,5,37,56,47);
