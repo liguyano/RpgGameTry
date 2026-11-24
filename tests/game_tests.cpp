@@ -24,6 +24,17 @@ int main() {
     // All obsolete market/fountain/wall rectangles must now be walkable.
     assert(village::blocked(village::pos(770,490))); // new fountain basin
     assert(village::blocked(village::fountainCenter())); // center of pool
+    // The water animation must never fall back to the start-up/shutdown frames.
+    for(int tick=0;tick<40;tick++){
+        const int frame=village::fountainWaterFrame(float(tick)/6.f+0.001f);
+        assert(frame>=3 && frame<=5);
+    }
+    assert(village::fountainWaterFrame(0.f)==3);
+    assert(village::fountainWaterFrame(1.f/6.f)==4);
+    assert(village::fountainWaterFrame(2.f/6.f)==5);
+    assert(village::fountainWaterFrame(3.f/6.f)==4);
+    assert(village::fountainWaterFrame(4.f/6.f)==3);
+
     assert(village::blocked(village::pos(750,540))); // original lower footprint preserved
     assert(village::blocked(village::pos(750,465))); // expanded upward edge
     assert(!village::blocked(village::pos(750,445))); // beyond the expanded edge and player radius
