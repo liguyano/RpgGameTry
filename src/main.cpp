@@ -340,6 +340,52 @@ void loadFountainFrames(SDL_Renderer* renderer,ArtAssets& art){
 // Render the fixed stone basin and the water sheet in the SAME rectangle.
 // Both exported sprites use a 362x362 cell and a common anchor; never animate
 // the base. A single source-rect changes for the water (4 columns x 3 rows).
+// Animate small highlights flowing DOWN through the already-visible water.
+// The stone basin and the actual jet silhouette are never translated or resized.
+// Coordinates are authored in the 362x362 source-frame space; all water layers
+// share the same destination, so there is no drifting across frames.
+void drawFallingWater(SDL_Renderer* renderer,const SDL_FRect& dst,float seconds){
+    constexpr float unit=1.f/362.f;
+    const float sx=dst.w*unit,sy=dst.h*unit;
+    struct Stream {float x0,y0,x1,y1,spread;int count;float speed;};
+    // Fountain art: main top-to-tier flow, left and right tier-to-basin falls.
+    constexpr std::array<Stream,3> streams{{
+        {182.f,15.f,182.f,112.f,11.f,13,0.90f},
+        {146.f,141.f,142.f,208.f,5.f,9,1.05f},
+        {218.f,141.f,221.f,207.f,5.f,9,1.09f}
+    }};
+    SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_BLEND);
+    for(size_t streamIndex=0;streamIndex<streams.size();++streamIndex){
+        const Stream& flow=streams[streamIndex];
+        for(int i=0;i<flow.count;i++){
+            const float t=std::fmod(seconds*flow.speed+
+                                  float(i)/float(flow.count),1.f);
+            const float wobble=std::sin(float(i)*2.3f+seconds*2.f)*flow.spread;
+            const float x=flow.x0+(flow.x1-flow.x0)*t+
+                          wobble*std::sin(t*3.14159265f);
+            const float y=flow.y0+(flow.y1-flow.y0)*t;
+            const float speedLine=streamIndex==0?5.5f:7.f;
+            const float xScreen=dst.x+x*sx,yScreen=dst.y+y*sy;
+            SDL_SetRenderDrawColor(renderer,214,250,255,
+                                   Uint8(110+(i%4)*19));
+            SDL_RenderLine(renderer,xScreen,yScreen,
+                           xScreen+0.65f*sx,yScreen+speedLine*sy);
+        }
+    }
+    // Repeated splashes where the side streams hit the basin.
+    for(int side:{-1,1}){
+        const float splashX=dst.x+(182.f+float(side)*40.f)*sx;
+        for(int i=0;i<4;i++){
+            const float t=std::fmod(seconds*1.5f+float(i)*0.25f,1.f);
+            const float x=splashX+float(side)*(3.f+10.f*t)*sx;
+            const float y=dst.y+(209.f-5.f*std::sin(t*3.14159265f))*sy;
+            SDL_SetRenderDrawColor(renderer,179,236,255,Uint8(170*(1.f-t)));
+            SDL_FRect droplet{x,y,2.5f*sx,2.5f*sy};
+            SDL_RenderFillRect(renderer,&droplet);
+        }
+    }
+    SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_NONE);
+}
 void drawAnimatedFountain(SDL_Renderer* renderer,const ArtAssets& art,
                           Vec2 camera,float heroY,float seconds,bool foreground){
     const float fountainY=village::fountainCenter().y;
@@ -357,10 +403,9 @@ void drawAnimatedFountain(SDL_Renderer* renderer,const ArtAssets& art,
             const SDL_FRect source{float(frame%4)*cellW,float(frame/4)*cellH,
                                    cellW,cellH};
             SDL_RenderTexture(renderer,art.fountainWater,&source,&dst);
+            drawFallingWater(renderer,dst,seconds);
         }
     }else if(art.fountainFrames[0]){
-        // Existing users without the split assets still get a STATIONARY
-        // fountain, not the old 12-frame animation that shakes left and right.
         SDL_RenderTexture(renderer,art.fountainFrames[0],nullptr,&dst);
     }
 }
