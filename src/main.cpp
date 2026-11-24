@@ -161,6 +161,7 @@ struct World {
     bool justArrived=true;
     bool largeVillage=false;
     bool showCollision=false;
+    float noticeAge=0.f; // real-time fade clock for chapter and control tips
     bool inventoryOpen=false;
     int inventorySelection=0;
     std::array<int,24> bag{{1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,0,0,0,0,0,0,0,0}};
@@ -1056,14 +1057,8 @@ void drawEnemy(SDL_Renderer* r,const Enemy& e){
     rect(r,x-12,y-33,static_cast<int>(24*e.hp/3.f),3,188,66,57);
 }
 void drawHud(SDL_Renderer* r,const World& w){
-    rect(r,11,10,298,66,22,32,38);
-    outline(r,11,10,298,66,189,153,88);
-    fillText(r,"KNIGHT OF ASHVALE",23,20,3,231,202,135);
-    rect(r,23,48,181,13,67,51,51);
-    rect(r,25,50,static_cast<int>(177*w.hero.hp/100.f),9,183,59,59);
-    outline(r,23,48,181,13,203,170,110);
-    fillText(r,"HP",214,49,2,244,224,190);
-    fillText(r,std::to_string(w.hero.hp),243,49,2,244,224,190);
+    // Persistent health bar is drawn separately in all scenes.
+    fillText(r,"KNIGHT OF ASHVALE",23,14,2,231,202,135);
     rect(r,WIDTH-225,10,213,54,22,32,38);
     outline(r,WIDTH-225,10,213,54,189,153,88);
     fillText(r,"GOBLINS: "+std::to_string(w.hero.kills)+"/8",WIDTH-213,21,3,233,199,133);
@@ -1392,6 +1387,57 @@ void storyPanel(SDL_Renderer* r,const World& w) {
     outline(r,13,HEIGHT-42,WIDTH-26,31,207,171,99);
     fillText(r,"WASD MOVE  E TALK / INTERACT  SPACE CONTINUE",27,HEIGHT-32,2,230,204,162);
 }
+// The top quest banner and bottom controls are pre-rendered into one
+// transparent texture, so their text, borders and backgrounds all fade together.
+void redrawStoryNotice(SDL_Renderer* renderer,SDL_Texture* notice,const World& w){
+    if(!notice)return;
+    SDL_SetRenderTarget(renderer,notice);
+    SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_NONE);
+    SDL_SetRenderDrawColor(renderer,0,0,0,0);
+    SDL_RenderClear(renderer);
+    storyPanel(renderer,w);
+    SDL_SetRenderTarget(renderer,nullptr);
+}
+Uint8 storyNoticeAlpha(float age){
+    // Fade in 0.4s, hold 2.8s, fade out 1.0s.
+    constexpr float fadeIn=0.4f,holdUntil=3.2f,fadeEnd=4.2f;
+    float opacity=0.f;
+    if(age<fadeIn)opacity=age/fadeIn;
+    else if(age<holdUntil)opacity=1.f;
+    else if(age<fadeEnd)opacity=(fadeEnd-age)/(fadeEnd-holdUntil);
+    return Uint8(game::clamp(opacity,0.f,1.f)*255.f);
+}
+void drawStoryNotice(SDL_Renderer* renderer,SDL_Texture* notice,float age){
+    if(!notice)return;
+    const Uint8 alpha=storyNoticeAlpha(age);
+    if(!alpha)return;
+    SDL_SetTextureAlphaMod(notice,alpha);
+    SDL_RenderTexture(renderer,notice,nullptr,nullptr);
+}
+// Compact persistent HP bar, kept separate from temporary quest banners.
+void drawHealthBar(SDL_Renderer* r,const World& w){
+    constexpr float x=19.f,y=96.f,width=232.f,height=31.f;
+    SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(r,18,26,36,220);
+    SDL_FRect box{x,y,width,height};
+    SDL_RenderFillRect(r,&box);
+    SDL_SetRenderDrawColor(r,209,174,103,255);
+    SDL_RenderRect(r,&box);
+    SDL_SetRenderDrawColor(r,64,37,44,255);
+    SDL_FRect track{x+37.f,y+8.f,143.f,14.f};
+    SDL_RenderFillRect(r,&track);
+    const float fraction=game::clamp(float(w.hero.hp)/float(MAX_HEALTH),0.f,1.f);
+    SDL_SetRenderDrawColor(r,176,50,58,255);
+    SDL_FRect fill{x+39.f,y+10.f,139.f*fraction,10.f};
+    if(fill.w>0.f)SDL_RenderFillRect(r,&fill);
+    SDL_SetRenderDrawColor(r,222,181,112,255);
+    SDL_RenderRect(r,&track);
+    SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_NONE);
+    fillText(r,"HP",int(x+8),int(y+10),2,240,218,186);
+    fillText(r,std::to_string(w.hero.hp)+"/"+std::to_string(MAX_HEALTH),
+             int(x+185),int(y+10),1,243,218,187);
+}
+
 std::string lowercaseAscii(std::string value){
     for(char& ch:value){
         const unsigned char c=static_cast<unsigned char>(ch);
@@ -1857,6 +1903,14 @@ int main(int argc,char** argv){
     DialogueFonts fonts=openDialogueFonts(renderer);
     World world;reset(world);
     world.largeVillage=art.expandedVillage;
+    SDL_Texture* storyNotice=SDL_CreateTexture(renderer,SDL_PIXELFORMAT_RGBA8888,
+                                              SDL_TEXTUREACCESS_TARGET,WIDTH,HEIGHT);
+    if(storyNotice){
+        SDL_SetTextureBlendMode(storyNotice,SDL_BLENDMODE_BLEND);
+        redrawStoryNotice(renderer,storyNotice,world);
+    }else{
+        std::cerr<<"Story notice render target unavailable: "<<SDL_GetError()<<"\\n";
+    }
     bool running=true;
     Uint64 last=SDL_GetPerformanceCounter();
     while(running){
@@ -1899,6 +1953,7 @@ int main(int argc,char** argv){
                     reset(world);world.largeVillage=art.expandedVillage;
                 }
                 if(ev.key.key==SDLK_F3)world.showCollision=!world.showCollision;
+                if(ev.key.key==SDLK_F1)world.noticeAge=0.f;
                 if(ev.key.key==SDLK_E || (ev.key.key==SDLK_SPACE && !world.dialogue.empty())){
                     if(!world.dialogue.empty() &&
                        size_t(world.dialogueAge*34.f)<world.dialogue.size())
@@ -1912,7 +1967,14 @@ int main(int argc,char** argv){
         float dt=static_cast<float>(now-last)/static_cast<float>(SDL_GetPerformanceFrequency());
         last=now;
         dt=clamp(dt,0.f,0.035f);
+        const int previousStory=world.story;
+        const Scene previousScene=world.scene;
         if(!world.inventoryOpen)update(world,SDL_GetKeyboardState(nullptr),dt);
+        if(world.story!=previousStory || world.scene!=previousScene){
+            world.noticeAge=0.f;
+            redrawStoryNotice(renderer,storyNotice,world);
+        }
+        world.noticeAge+=dt;
         if(world.scene==Scene::HOME){
             if(art.home)drawBackground(renderer,art.home);
             else drawCottage(renderer,world.time);
@@ -2006,10 +2068,10 @@ int main(int argc,char** argv){
             drawAnimatedFountain(renderer,art,camera,world.hero.pos.y,world.time,true);
             drawVillagePopulation(renderer,art,world,camera,true);
         }
-        if(world.story<9){
-            storyPanel(renderer,world);
-            drawInteractPrompt(renderer,world);
-        }else drawHud(renderer,world);
+        if(world.story<9)drawInteractPrompt(renderer,world);
+        else drawHud(renderer,world);
+        drawStoryNotice(renderer,storyNotice,world.noticeAge);
+        drawHealthBar(renderer,world);
         drawOverlay(renderer,world);
         drawDialogue(renderer,world,art,fonts);
         if(world.inventoryOpen)drawInventory(renderer,world,art);
@@ -2017,6 +2079,7 @@ int main(int argc,char** argv){
         SDL_RenderPresent(renderer);
         if(!(SDL_GetWindowFlags(window)&SDL_WINDOW_INPUT_FOCUS))SDL_Delay(16);
     }
+    if(storyNotice)SDL_DestroyTexture(storyNotice);
     closeDialogueFonts(fonts);
     destroyArtAssets(art);
     SDL_DestroyRenderer(renderer);
