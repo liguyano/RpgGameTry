@@ -1,5 +1,6 @@
 #include "game_logic.h"
 #include "village_map.h"
+#include "shop_map.h"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #if RPG_HAS_SDL3_TTF
@@ -40,7 +41,7 @@ struct Player {
     bool moving=false;
     float animationTime=0.f;
 };
-enum class Scene { HOME, VILLAGE, OUTSKIRTS };
+enum class Scene { HOME, VILLAGE, SHOP, OUTSKIRTS };
 
 // Each relative follows a small safe route within the cottage, with pauses and
 // direction changes. The location is authoritative for rendering and E interaction.
@@ -163,6 +164,8 @@ struct World {
     bool showCollision=false;
     float noticeAge=0.f; // real-time fade clock for chapter and control tips
     bool inventoryOpen=false;
+    bool shopMenu=false;
+    int shopSelection=0;
     int inventorySelection=0;
     std::array<int,24> bag{{1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,0,0,0,0,0,0,0,0}};
     std::array<int,6> equipped{{0,0,0,0,0,0}};
@@ -199,6 +202,8 @@ struct ArtAssets {
     SDL_Texture* fountainAnimation=nullptr;
     SDL_Texture* uiAtlas=nullptr;
     SDL_Texture* itemsAtlas=nullptr;
+    SDL_Texture* shopBackground=nullptr;
+    std::array<SDL_Texture*,shop::furniture.size()> shopFurniture{};
     std::array<SDL_Texture*,8*4*4> villagerFrames{};
 };
 SDL_Texture* loadArt(SDL_Renderer* renderer,const char* filename){
@@ -792,6 +797,8 @@ ArtAssets loadArtAssets(SDL_Renderer* renderer){
     loadVillagerFrames(renderer,result);
     result.uiAtlas=loadArt(renderer,"ui.png");
     result.itemsAtlas=loadArt(renderer,"items.png");
+    result.shopBackground=loadArt(renderer,"shopback.png");
+    loadShopFurniture(renderer,result);
     result.fountainBase=loadArt(renderer,"fountain_base.png");
     result.fountainAnimation=loadNewFountainAnimation(renderer);
     if(!result.fountainAnimation)
@@ -828,6 +835,8 @@ void destroyArtAssets(ArtAssets& art){
     if(art.fountainAnimation)SDL_DestroyTexture(art.fountainAnimation);
     if(art.uiAtlas)SDL_DestroyTexture(art.uiAtlas);
     if(art.itemsAtlas)SDL_DestroyTexture(art.itemsAtlas);
+    if(art.shopBackground)SDL_DestroyTexture(art.shopBackground);
+    for(SDL_Texture* t:art.shopFurniture)if(t)SDL_DestroyTexture(t);
     for(SDL_Texture* t:art.villagerFrames)if(t)SDL_DestroyTexture(t);
 }
 void color(SDL_Renderer* r,Uint8 red,Uint8 green,Uint8 blue,Uint8 alpha=255){
@@ -1124,6 +1133,8 @@ void update(World& w,const bool* keys,float dt){
         if(w.scene==Scene::HOME){
             w.hero.pos.x=clamp(w.hero.pos.x+dir.x*PLAYER_SPEED*dt,88.f,float(WIDTH-90));
             w.hero.pos.y=clamp(w.hero.pos.y+dir.y*PLAYER_SPEED*dt,112.f,float(HEIGHT-86));
+        }else if(w.scene==Scene::SHOP){
+            shop::move(w.hero.pos,{dir.x*PLAYER_SPEED,dir.y*PLAYER_SPEED},dt);
         }else if(w.scene==Scene::OUTSKIRTS){
             w.hero.pos.x=clamp(w.hero.pos.x+dir.x*PLAYER_SPEED*dt,20.f,float(WIDTH-20));
             w.hero.pos.y=clamp(w.hero.pos.y+dir.y*PLAYER_SPEED*dt,195.f,float(HEIGHT-20));
@@ -1604,6 +1615,40 @@ void goVillage(World& w){
     w.hero.pos=w.largeVillage?village::pos(545,755):Vec2{477,480};
     showDialogue(w,"HERO","THE VILLAGE IS BUSY TODAY.\nI SHOULD FIND ELDER ROWAN.");
 }
+// The shop is an optional side activity; leave story quest progress unchanged.
+inline const Vec2 SHOP_VILLAGE_ENTRY=village::pos(1104.f,731.f);
+void enterShop(World& w){
+    w.scene=Scene::SHOP;
+    w.shopMenu=false;
+    w.hero.pos=shop::ARRIVAL;
+    w.hero.facing={0.f,-1.f};
+    w.hero.moving=false;
+    showDialogue(w,"HERO","A COZY GENERAL STORE. I SHOULD SEE WHAT IS FOR SALE.");
+}
+void exitShop(World& w){
+    w.scene=Scene::VILLAGE;
+    w.shopMenu=false;
+    w.hero.pos=w.largeVillage?village::pos(1104.f,745.f):Vec2{670.f,425.f};
+    w.hero.facing={0.f,1.f};
+    w.hero.moving=false;
+    showDialogue(w,"HERO","BACK TO ASHVALE VILLAGE.");
+}
+inline constexpr std::array<int,6> SHOP_GOODS{{12,14,15,16,5,8}};
+inline constexpr std::array<int,6> SHOP_PRICES{{22,8,6,5,54,36}};
+enum class PurchaseResult {BOUGHT,NO_GOLD,BAG_FULL,INVALID};
+PurchaseResult buyShopItem(World& w,int slot){
+    if(slot<0||slot>=int(SHOP_GOODS.size()))return PurchaseResult::INVALID;
+    if(w.gold<SHOP_PRICES[size_t(slot)])return PurchaseResult::NO_GOLD;
+    for(int& bagItem:w.bag){
+        if(bagItem==0){
+            bagItem=SHOP_GOODS[size_t(slot)];
+            w.gold-=SHOP_PRICES[size_t(slot)];
+            return PurchaseResult::BOUGHT;
+        }
+    }
+    return PurchaseResult::BAG_FULL;
+}
+
 void goOutskirts(World& w){
     w.scene=Scene::OUTSKIRTS;
     w.hero.pos={138,355};
@@ -1623,6 +1668,15 @@ void beginBattle(World& w){
 }
 void interact(World& w){
     if(!w.dialogue.empty()){w.dialogue.clear();return;}
+    if(w.scene==Scene::SHOP){
+        if(shop::nearDoor(w.hero.pos)){exitShop(w);return;}
+        if(shop::nearMerchant(w.hero.pos)){w.shopMenu=true;return;}
+        return;
+    }
+    if(w.scene==Scene::VILLAGE &&
+       withinRange(w.hero.pos,w.largeVillage?SHOP_VILLAGE_ENTRY:Vec2{670.f,425.f},75.f)){
+        enterShop(w);return;
+    }
     if(w.story==0 && withinRange(w.hero.pos,w.family[0].position,72)){
         w.story=1;showDialogue(w,"MOTHER","GOOD MORNING, ELIAN!\nYOUR FATHER HAS SOMETHING TO SAY.");return;
     }
