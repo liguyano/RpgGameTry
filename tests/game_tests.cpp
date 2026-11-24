@@ -24,7 +24,9 @@ int main() {
     // All obsolete market/fountain/wall rectangles must now be walkable.
     assert(village::blocked(village::pos(770,490))); // new fountain basin
     assert(village::blocked(village::fountainCenter())); // center of pool
-    assert(village::blocked(village::pos(750,540))); // shifted pool footprint
+    assert(village::blocked(village::pos(750,540))); // original lower footprint preserved
+    assert(village::blocked(village::pos(750,465))); // expanded upward edge
+    assert(!village::blocked(village::pos(750,455))); // beyond the expanded edge
     assert(!village::blocked(village::pos(750,450))); // formerly blocked position is now free
     assert(!village::blocked(village::pos(700,540))); // plaza still accessible
     assert(!village::blocked(village::pos(620,490))); // old west market stand
