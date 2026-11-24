@@ -59,6 +59,21 @@ Press **E or Space** once to show the full line, and again to continue.
 The renderer caches dialogue textures rather than recreating the same text
 every game frame.
 
+## Animated village citizens (`villager.png`)
+
+The uploaded `assets/villager.png` now supplies eight character styles, with
+four facing directions and four walking poses per direction (128 cropped
+textures). The loader removes dark backgrounds connected to the edge of each
+sprite crop so the labels and the sheet background are not displayed.
+
+Elder Rowan, the merchant and the guard use illustrated sprites without
+changing their existing chapter progression. Eight additional townsfolk roam
+short routes near their homes, pause, turn to walk and can be spoken to with
+**E** at close range. NPC walking respects village obstacle collisions; their
+animation and placement use the expanded village map. If the PNG is unavailable,
+procedural NPC drawings remain as a fallback. Collision and portrait cropping
+are approximate because the supplied illustration is a labelled concept sheet.
+
 ## Village object layers and moving family NPCs
 
 - `assets/village.png` supplies the **ground and roads** without houses or trees.
