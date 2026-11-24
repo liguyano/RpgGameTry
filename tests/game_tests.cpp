@@ -20,8 +20,15 @@ int main() {
     // The village's collision overlay (F3) must match these world-space zones.
     assert(village::blocked(village::pos(403,304))); // lower half of cottage
     assert(village::blocked(village::pos(1260,620))); // river
-    assert(village::blocked(village::pos(110,850))); // cliff
-    assert(village::blocked(village::pos(770,490))); // fountain
+    assert(!village::blocked(village::pos(110,850))); // old oversized cliff air wall removed
+    // All obsolete market/fountain/wall rectangles must now be walkable.
+    assert(!village::blocked(village::pos(770,490))); // old fountain
+    assert(!village::blocked(village::pos(620,490))); // old west market stand
+    assert(!village::blocked(village::pos(1080,470))); // old east market stand
+    assert(!village::blocked(village::pos(900,640))); // old street obstruction
+    assert(!village::blocked(village::pos(120,560))); // old decorative wall
+    assert(!village::blocked(village::pos(100,150))); // old northwest forest polygon
+    assert(!village::blocked(village::pos(1490,150))); // old northeast forest polygon
     assert(village::blocked(village::pos(872,440))); // lower half of oak
     assert(!village::blocked(village::pos(405,210))); // roof is passable / occluded visually
     assert(!village::blocked(village::pos(850,360))); // upper crown is passable
