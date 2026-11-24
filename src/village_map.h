@@ -50,26 +50,42 @@ inline Polygon polygon(std::initializer_list<game::Vec2> imagePoints){
     for(auto v:imagePoints)if(p.count<p.points.size())p.points[p.count++]=pos(v.x,v.y);
     return p;
 }
-// Small ground-contact collision only: roofs and foliage are visual occluders,
-// not solid walls. Positions track VILLAGE_PROPS in the renderer.
-// All positions are in the original 1536x1024 artwork coordinates.
-inline const std::array<Polygon,12>& obstacles(){
-    static const std::array<Polygon,12> zones{{
-        // Buildings: small foundations around the entrance/feet, not whole roofs.
-        polygon({{356,287},{451,287},{451,321},{356,321}}), // cottage
-        polygon({{640,294},{717,294},{717,325},{640,325}}), // farmhouse
-        polygon({{928,347},{1004,347},{1004,375},{928,375}}), // tavern
-        polygon({{1078,662},{1138,662},{1138,696},{1078,696}}), // shop
-        polygon({{381,643},{446,643},{446,674},{381,674}}), // stone house
-        polygon({{681,820},{749,820},{749,853},{681,853}}), // blue roof house
-        // Trees: collide with narrow trunks only; walk beneath the canopy.
-        polygon({{861,450},{883,450},{883,472},{861,472}}), // oak
-        polygon({{554,509},{568,509},{568,525},{554,525}}), // green deciduous
-        polygon({{1190,590},{1206,590},{1206,609},{1190,609}}), // pine
-        polygon({{1325,300},{1342,300},{1342,319},{1325,319}}), // blossom
-        polygon({{285,810},{302,810},{302,825},{285,825}}), // apple
-        polygon({{192,308},{211,308},{211,328},{192,328}})  // spreading tree
+// Collision is based on the LOWER HALF of each placed visual sprite, rather
+// than a tiny foundation or tree trunk. Upper roofs/canopies remain foreground
+// occluders. Positions match VILLAGE_PROPS in src/main.cpp (image coordinates).
+struct ObjectBounds {float x,y,w,h;bool tree;};
+inline const std::array<ObjectBounds,12>& objectBounds(){
+    static const std::array<ObjectBounds,12> props{{
+        {310,122,190,203,false},   // cottage
+        {558,115,225,214,false},   // thatched farmhouse
+        {865,187,200,190,false},   // tavern
+        {1007,509,194,190,false},  // shop
+        {321,483,212,193,false},   // stone house
+        {611,678,212,179,false},   // blue-roof house
+        {800,314,150,163,true},    // oak
+        {504,389,112,140,true},    // deciduous tree
+        {1138,447,120,163,true},   // pine
+        {1257,171,153,152,true},   // blossom tree
+        {232,681,125,148,true},    // apple tree
+        {132,177,152,154,true}     // spreading tree
     }};
+    return props;
+}
+inline const std::array<Polygon,12>& obstacles(){
+    static const std::array<Polygon,12> zones=[]{
+        std::array<Polygon,12> result{};
+        for(size_t i=0;i<result.size();++i){
+            const auto& b=objectBounds()[i];
+            // Buildings: 85% of sprite width. Trees: 65% of canopy width,
+            // preserving some ability to walk past the outer branches.
+            const float widthFraction=b.tree?0.65f:0.85f;
+            const float inset=b.w*(1.f-widthFraction)*0.5f;
+            const float x0=b.x+inset,x1=b.x+b.w-inset;
+            const float y0=b.y+b.h*0.5f,y1=b.y+b.h;
+            result[i]=polygon({{x0,y0},{x1,y0},{x1,y1},{x0,y1}});
+        }
+        return result;
+    }();
     return zones;
 }
 inline const std::array<Polygon,8>& terrain(){
