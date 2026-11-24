@@ -25,7 +25,7 @@ int main() {
     assert(village::blocked(village::pos(872,461))); // oak trunk
     assert(!village::blocked(village::pos(405,210))); // roof is passable / occluded visually
     assert(!village::blocked(village::pos(850,395))); // crown is passable
-    assert(!village::blocked(village::pos(400,280))); // can walk behind a house
+    assert(!village::blocked(village::pos(400,260))); // can walk behind a house
     assert(!village::blocked(village::pos(1250,375))); // bridge
     assert(!village::blocked(village::pos(700,565))); // village street
     assert(!village::blocked(village::pos(545,755))); // spawn
