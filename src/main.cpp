@@ -1671,6 +1671,172 @@ void drawOverlay(SDL_Renderer* r,const World& w){
     fillText(r,w.won?"ASHVALE IS SAFE":"THE VILLAGE NEEDS YOU",WIDTH/2-156,HEIGHT/2+12,3,221,211,188);
     fillText(r,"PRESS R TO RESTART",WIDTH/2-132,HEIGHT/2+65,3,213,176,113);
 }
+
+// First-playable inventory: item ids are fixed positions on items.png.
+struct ItemView {const char* name;int column,row;int gearSlot;bool usable;};
+constexpr std::array<ItemView,17> ITEM_VIEW{{
+    {"EMPTY",0,0,-1,false},
+    {"IRON SWORD",0,0,0,false},{"BATTLE AXE",1,0,0,false},
+    {"HUNTING BOW",2,0,0,false},{"OAK STAFF",3,0,0,false},
+    {"ROYAL SHIELD",4,0,1,false},{"STEEL HELM",5,0,2,false},
+    {"CHAIN ARMOR",0,1,3,false},{"LEATHER BOOTS",1,1,4,false},
+    {"WORK GLOVES",2,1,5,false},{"SILVER RING",3,1,5,false},
+    {"RUBY AMULET",4,1,5,false},{"HEALTH POTION",5,1,-1,true},
+    {"MANA POTION",0,2,-1,true},{"HERBS",1,2,-1,true},
+    {"BREAD",2,2,-1,true},{"APPLE",3,2,-1,true}
+}};
+inline const ItemView& itemView(int id){
+    return ITEM_VIEW[size_t(id>=0 && id<int(ITEM_VIEW.size())?id:0)];
+}
+void useInventoryItem(World& world,int index){
+    if(index<0||index>=int(world.bag.size()))return;
+    const int id=world.bag[size_t(index)];
+    if(!id)return;
+    const ItemView& def=itemView(id);
+    if(def.usable){
+        if(id==12||id==14||id==15||id==16){
+            if(world.hero.hp>=MAX_HEALTH)return;
+            world.hero.hp=std::min(MAX_HEALTH,world.hero.hp+(id==12?40:15));
+        }
+        world.bag[size_t(index)]=0;
+    }else if(def.gearSlot>=0){
+        const size_t slot=size_t(def.gearSlot);
+        std::swap(world.bag[size_t(index)],world.equipped[slot]);
+    }
+}
+bool useQuickSlot(World& world,int slot){
+    if(slot<0||slot>=int(world.quickSlots.size()))return false;
+    world.quickSelected=slot;
+    const int id=world.quickSlots[size_t(slot)];
+    if(!id)return false;
+    for(int i=0;i<int(world.bag.size());i++){
+        if(world.bag[size_t(i)]==id){
+            if(itemView(id).usable){useInventoryItem(world,i);return true;}
+            return false;
+        }
+    }
+    return false;
+}
+void clickInventory(World& world,float x,float y){
+    constexpr float bagX=80.f,bagY=230.f,bagStep=58.f;
+    if(x>=bagX&&x<bagX+8*bagStep&&y>=bagY&&y<bagY+3*bagStep){
+        const int col=int((x-bagX)/bagStep),row=int((y-bagY)/bagStep);
+        world.inventorySelection=row*8+col;
+        return;
+    }
+    // Click equipment slots to unequip into the first empty backpack cell.
+    constexpr float gearX=639.f,gearY=230.f,gearStep=79.f;
+    if(x>=gearX&&x<gearX+3*gearStep&&y>=gearY&&y<gearY+2*gearStep){
+        const int slot=int((y-gearY)/gearStep)*3+int((x-gearX)/gearStep);
+        if(world.equipped[size_t(slot)]){
+            for(auto& item:world.bag)if(!item){
+                item=world.equipped[size_t(slot)];
+                world.equipped[size_t(slot)]=0;
+                break;
+            }
+        }
+        return;
+    }
+    // Click on quickbar assigns the currently selected backpack item.
+    if(y>=538.f && y<598.f && x>=280.f && x<680.f){
+        const int slot=int((x-280.f)/50.f);
+        world.quickSlots[size_t(slot)]=world.bag[size_t(world.inventorySelection)];
+        world.quickSelected=slot;
+    }
+}
+void atlasImage(SDL_Renderer* renderer,SDL_Texture* texture,
+                float sx,float sy,float sw,float sh,
+                float x,float y,float w,float h,float refW,float refH){
+    if(!texture)return;
+    float tw=0.f,th=0.f;
+    if(!SDL_GetTextureSize(texture,&tw,&th)||tw<=0||th<=0)return;
+    const SDL_FRect source{sx*tw/refW,sy*th/refH,sw*tw/refW,sh*th/refH};
+    const SDL_FRect destination{x,y,w,h};
+    SDL_RenderTexture(renderer,texture,&source,&destination);
+}
+void itemIcon(SDL_Renderer* renderer,const ArtAssets& art,int id,float x,float y,float size){
+    if(id<=0 || !art.itemsAtlas)return;
+    const auto& info=itemView(id);
+    // First three rows of items.png have six centered icons per row.
+    // Crop well inside each tile to exclude neighbouring art.
+    constexpr float centersX[6]={141.f,365.f,586.f,810.f,1037.f,1253.f};
+    constexpr float centersY[3]={109.f,278.f,447.f};
+    atlasImage(renderer,art.itemsAtlas,
+               centersX[info.column]-77.f,centersY[info.row]-73.f,154.f,146.f,
+               x,y,size,size,1408.f,1024.f);
+}
+void uiBox(SDL_Renderer* renderer,float x,float y,float w,float h){
+    SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer,19,25,36,242);
+    SDL_FRect fill{x,y,w,h};
+    SDL_RenderFillRect(renderer,&fill);
+    SDL_SetRenderDrawColor(renderer,197,159,91,255);
+    SDL_RenderRect(renderer,&fill);
+    SDL_FRect inner{x+4.f,y+4.f,w-8.f,h-8.f};
+    SDL_SetRenderDrawColor(renderer,104,87,67,245);
+    SDL_RenderRect(renderer,&inner);
+    SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_NONE);
+}
+void drawQuickbar(SDL_Renderer* renderer,const World& w,const ArtAssets& art){
+    // Draw during play as well as in the inventory screen.
+    uiBox(renderer,271.f,528.f,418.f,76.f);
+    for(int i=0;i<8;i++){
+        const float x=281.f+50.f*i,y=541.f;
+        uiBox(renderer,x,y,46.f,51.f);
+        itemIcon(renderer,art,w.quickSlots[size_t(i)],x+6.f,y+3.f,34.f);
+        if(i==w.quickSelected){
+            color(renderer,240,211,116);
+            SDL_FRect selected{x-2.f,y-2.f,50.f,55.f};
+            SDL_RenderRect(renderer,&selected);
+        }
+        fillText(renderer,std::to_string(i+1),int(x+18),int(y+40),1,240,207,147);
+    }
+}
+void drawInventory(SDL_Renderer* renderer,const World& w,const ArtAssets& art){
+    SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer,5,9,17,202);
+    SDL_FRect shade{0.f,0.f,float(WIDTH),float(HEIGHT)};
+    SDL_RenderFillRect(renderer,&shade);
+    SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_NONE);
+    uiBox(renderer,54.f,112.f,513.f,407.f);
+    uiBox(renderer,599.f,112.f,305.f,407.f);
+    // Decorative upper carved title bars cropped from ui.png. The rest of
+    // the panels remain readable even if the atlas is missing.
+    atlasImage(renderer,art.uiAtlas,95,0,370,142,114,120,390,91,1408,1024);
+    atlasImage(renderer,art.uiAtlas,610,0,250,145,633,122,242,92,1408,1024);
+    fillText(renderer,"BACKPACK",87,183,3,247,222,151);
+    fillText(renderer,"EQUIPMENT",627,183,3,247,222,151);
+    for(int i=0;i<24;i++){
+        const int col=i%8,row=i/8;
+        const float x=80.f+float(col)*58.f,y=230.f+float(row)*58.f;
+        uiBox(renderer,x,y,52.f,52.f);
+        itemIcon(renderer,art,w.bag[size_t(i)],x+5.f,y+5.f,42.f);
+        if(i==w.inventorySelection){
+            color(renderer,253,222,112);
+            SDL_FRect chosen{x-2.f,y-2.f,56.f,56.f};
+            SDL_RenderRect(renderer,&chosen);
+        }
+    }
+    constexpr std::array<const char*,6> labels{{
+        "WEAPON","SHIELD","HELM","ARMOR","BOOTS","OTHER"
+    }};
+    for(int i=0;i<6;i++){
+        const float x=639.f+float(i%3)*79.f,y=230.f+float(i/3)*79.f;
+        uiBox(renderer,x,y,68.f,68.f);
+        itemIcon(renderer,art,w.equipped[size_t(i)],x+9.f,y+5.f,50.f);
+        fillText(renderer,labels[size_t(i)],int(x+2),int(y+55),1,201,180,127);
+    }
+    uiBox(renderer,78.f,416.f,464.f,86.f);
+    const int selected=w.bag[size_t(w.inventorySelection)];
+    fillText(renderer,itemView(selected).name,94,434,3,243,216,151);
+    fillText(renderer,selected?(itemView(selected).usable?"E: USE ITEM":"E: EQUIP ITEM"):
+             "EMPTY SLOT",94,464,2,221,206,180);
+    fillText(renderer,"GOLD: "+std::to_string(w.gold),645,399,2,241,203,114);
+    fillText(renderer,"B / I: CLOSE     ARROWS: SELECT     E: USE / EQUIP",
+             91,496,1,215,198,159);
+    drawQuickbar(renderer,w,art);
+}
+
 } // namespace
 
 int main(int argc,char** argv){
