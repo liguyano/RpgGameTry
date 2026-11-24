@@ -125,6 +125,7 @@ struct ArtAssets {
     std::array<SDL_Texture*,12> fountainFrames{}; // legacy spring.png fallback (first frame only)
     SDL_Texture* fountainBase=nullptr;
     SDL_Texture* fountainWater=nullptr;
+    SDL_Texture* fountainAnimation=nullptr;
 };
 SDL_Texture* loadArt(SDL_Renderer* renderer,const char* filename){
     namespace fs=std::filesystem;
@@ -152,6 +153,51 @@ SDL_Texture* loadArt(SDL_Renderer* renderer,const char* filename){
             return texture;
         }
     }
+    return nullptr;
+}
+
+// Accept the newly generated sheet under its original name (including a
+// Japanese filename) so users do not need to rename it to fountain_anim.png.
+// Ignore old fountain_base / fountain_water assets and other artwork.
+SDL_Texture* loadNewFountainAnimation(SDL_Renderer* renderer){
+#if RPG_HAS_SDL3_IMAGE
+    namespace fs=std::filesystem;
+    const fs::path roots[]={"assets","../assets","../../assets"};
+    const std::string exact="水しぶきの噴水アニメーション_spritesheet.png";
+    for(const auto& root:roots){
+        if(!fs::exists(root) || !fs::is_directory(root))continue;
+        fs::path chosen=root/exact;
+        if(!fs::exists(chosen)){
+            std::vector<fs::path> candidates;
+            for(const auto& entry:fs::directory_iterator(root)){
+                if(!entry.is_regular_file())continue;
+                std::string name=entry.path().filename().string();
+                std::string lower=name;
+                for(char& ch:lower)ch=char(std::tolower(static_cast<unsigned char>(ch)));
+                if(entry.path().extension()!=".png")continue;
+                if(lower.find("ani")!=std::string::npos ||
+                   name.find("アニメ")!=std::string::npos)
+                    candidates.push_back(entry.path());
+            }
+            std::sort(candidates.begin(),candidates.end());
+            if(candidates.empty())continue;
+            chosen=candidates.front();
+        }
+        SDL_Texture* texture=loadArt(renderer,chosen.filename().string().c_str());
+        if(!texture)continue;
+        float w=0.f,h=0.f;
+        if(!SDL_GetTextureSize(texture,&w,&h) || w<4.f || h<3.f ||
+           int(w)%4!=0 || int(h)%3!=0){
+            std::cerr<<"Ignoring invalid fountain animation sheet: "<<chosen.string()<<"\n";
+            SDL_DestroyTexture(texture);
+            continue;
+        }
+        std::cerr<<"Fountain 12-frame sheet: "<<chosen.string()<<"\n";
+        return texture;
+    }
+#else
+    (void)renderer;
+#endif
     return nullptr;
 }
 
@@ -344,48 +390,8 @@ void loadFountainFrames(SDL_Renderer* renderer,ArtAssets& art){
 // The stone basin and the actual jet silhouette are never translated or resized.
 // Coordinates are authored in the 362x362 source-frame space; all water layers
 // share the same destination, so there is no drifting across frames.
-void drawFallingWater(SDL_Renderer* renderer,const SDL_FRect& dst,float seconds){
-    constexpr float unit=1.f/362.f;
-    const float sx=dst.w*unit,sy=dst.h*unit;
-    struct Stream {float x0,y0,x1,y1,spread;int count;float speed;};
-    // Fountain art: main top-to-tier flow, left and right tier-to-basin falls.
-    constexpr std::array<Stream,3> streams{{
-        {182.f,15.f,182.f,112.f,11.f,13,0.90f},
-        {146.f,141.f,142.f,208.f,5.f,9,1.05f},
-        {218.f,141.f,221.f,207.f,5.f,9,1.09f}
-    }};
-    SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_BLEND);
-    for(size_t streamIndex=0;streamIndex<streams.size();++streamIndex){
-        const Stream& flow=streams[streamIndex];
-        for(int i=0;i<flow.count;i++){
-            const float t=std::fmod(seconds*flow.speed+
-                                  float(i)/float(flow.count),1.f);
-            const float wobble=std::sin(float(i)*2.3f+seconds*2.f)*flow.spread;
-            const float x=flow.x0+(flow.x1-flow.x0)*t+
-                          wobble*std::sin(t*3.14159265f);
-            const float y=flow.y0+(flow.y1-flow.y0)*t;
-            const float speedLine=streamIndex==0?5.5f:7.f;
-            const float xScreen=dst.x+x*sx,yScreen=dst.y+y*sy;
-            SDL_SetRenderDrawColor(renderer,214,250,255,
-                                   Uint8(110+(i%4)*19));
-            SDL_RenderLine(renderer,xScreen,yScreen,
-                           xScreen+0.65f*sx,yScreen+speedLine*sy);
-        }
-    }
-    // Repeated splashes where the side streams hit the basin.
-    for(int side:{-1,1}){
-        const float splashX=dst.x+(182.f+float(side)*40.f)*sx;
-        for(int i=0;i<4;i++){
-            const float t=std::fmod(seconds*1.5f+float(i)*0.25f,1.f);
-            const float x=splashX+float(side)*(3.f+10.f*t)*sx;
-            const float y=dst.y+(209.f-5.f*std::sin(t*3.14159265f))*sy;
-            SDL_SetRenderDrawColor(renderer,179,236,255,Uint8(170*(1.f-t)));
-            SDL_FRect droplet{x,y,2.5f*sx,2.5f*sy};
-            SDL_RenderFillRect(renderer,&droplet);
-        }
-    }
-    SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_NONE);
-}
+// Play the new twelve-frame atlas directly, without synthetic water droplets,
+// height changes, or the old animated fountain-water layer.
 void drawAnimatedFountain(SDL_Renderer* renderer,const ArtAssets& art,
                           Vec2 camera,float heroY,float seconds,bool foreground){
     const float fountainY=village::fountainCenter().y;
@@ -394,16 +400,23 @@ void drawAnimatedFountain(SDL_Renderer* renderer,const ArtAssets& art,
     const float s=village::SCALE;
     const SDL_FRect dst{center.x-camera.x-96.f*s,
                        center.y-camera.y-152.f*s,192.f*s,192.f*s};
-    if(art.fountainBase && art.fountainWater){
+    if(art.fountainAnimation){
+        float width=0.f,height=0.f;
+        if(SDL_GetTextureSize(art.fountainAnimation,&width,&height)){
+            constexpr int columns=4,rows=3,count=columns*rows;
+            const int frame=int(std::max(0.f,seconds)*10.f)%count;
+            const float cellW=width/float(columns),cellH=height/float(rows);
+            const SDL_FRect source{float(frame%columns)*cellW,
+                                   float(frame/columns)*cellH,cellW,cellH};
+            SDL_RenderTexture(renderer,art.fountainAnimation,&source,&dst);
+        }
+    }else if(art.fountainBase && art.fountainWater){
+        // Existing split assets remain as a stationary fallback.
         SDL_RenderTexture(renderer,art.fountainBase,nullptr,&dst);
         float width=0.f,height=0.f;
         if(SDL_GetTextureSize(art.fountainWater,&width,&height)){
-            const int frame=village::fountainWaterFrame(seconds);
-            const float cellW=width/4.f,cellH=height/3.f;
-            const SDL_FRect source{float(frame%4)*cellW,float(frame/4)*cellH,
-                                   cellW,cellH};
+            const SDL_FRect source{width/4.f,height/3.f,width/4.f,height/3.f};
             SDL_RenderTexture(renderer,art.fountainWater,&source,&dst);
-            drawFallingWater(renderer,dst,seconds);
         }
     }else if(art.fountainFrames[0]){
         SDL_RenderTexture(renderer,art.fountainFrames[0],nullptr,&dst);
@@ -609,14 +622,16 @@ ArtAssets loadArtAssets(SDL_Renderer* renderer){
     loadFamilyFrames(renderer,result);
     loadHeroFrames(renderer,result);
     loadVillageProps(renderer,result);
-    result.fountainBase=loadArt(renderer,"fountain_base.png");
-    result.fountainWater=loadArt(renderer,"fountain_water_12frames.png");
-    if(!result.fountainBase || !result.fountainWater){
+    result.fountainAnimation=loadNewFountainAnimation(renderer);
+    if(!result.fountainAnimation)
+        result.fountainBase=loadArt(renderer,"fountain_base.png");
+    if(!result.fountainAnimation)
+        result.fountainWater=loadArt(renderer,"fountain_water_12frames.png");
+    if(!result.fountainAnimation && (!result.fountainBase || !result.fountainWater)){
         if(result.fountainBase){SDL_DestroyTexture(result.fountainBase);result.fountainBase=nullptr;}
         if(result.fountainWater){SDL_DestroyTexture(result.fountainWater);result.fountainWater=nullptr;}
         loadFountainFrames(renderer,result); // only the first frame is displayed
-        std::cerr<<"Fountain split sprites missing; using static legacy spring.png. "
-                 <<"Add fountain_base.png and fountain_water_12frames.png to assets.\n";
+        std::cerr<<"New animation and split fountain sprites unavailable; using static spring.png.\n";
     }
     if(!result.home||!result.village||!result.outskirts)
         std::cerr<<"AI art missing: extract art pack so assets/*.bmp exists. Using fallback visuals.\n";
@@ -640,6 +655,7 @@ void destroyArtAssets(ArtAssets& art){
         if(t)SDL_DestroyTexture(t);
     if(art.fountainBase)SDL_DestroyTexture(art.fountainBase);
     if(art.fountainWater)SDL_DestroyTexture(art.fountainWater);
+    if(art.fountainAnimation)SDL_DestroyTexture(art.fountainAnimation);
 }
 void color(SDL_Renderer* r,Uint8 red,Uint8 green,Uint8 blue,Uint8 alpha=255){
     SDL_SetRenderDrawColor(r,red,green,blue,alpha);
