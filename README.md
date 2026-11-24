@@ -59,6 +59,18 @@ Press **E or Space** once to show the full line, and again to continue.
 The renderer caches dialogue textures rather than recreating the same text
 every game frame.
 
+## Fading quest banners and persistent health
+
+The original large top chapter/quest banner and bottom control tips now fade
+in (0.4 seconds), remain for 2.8 seconds, then fade out (1 second) instead
+of permanently covering the scene. They replay when story progress changes,
+when entering another scene, or after a restart. Press **F1** to show the
+two prompts again at any time.
+
+A separate always-visible **HP / 100** bar is placed at the upper left below
+the former quest-banner area. It updates with combat damage or healing in
+the inventory/quickbar. The battle-specific kill counter remains available.
+
 ## RPG inventory UI (ui.png + items.png)
 
 The playable backpack reads `assets/ui.png` (stone-and-gold UI panels) and
