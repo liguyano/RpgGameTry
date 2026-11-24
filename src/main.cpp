@@ -114,7 +114,7 @@ struct ArtAssets {
     SDL_Texture* father=nullptr;
     SDL_Texture* mother=nullptr;
     SDL_Texture* lily=nullptr;
-    std::array<SDL_Texture*,36> familyFrames{};
+    std::array<SDL_Texture*,54> familyFrames{};
     std::array<SDL_Texture*,16> heroFrames{};
     std::array<SDL_Texture*,12> villageProps{};
 };
@@ -354,72 +354,85 @@ void drawVillageProps(SDL_Renderer* renderer,const ArtAssets& art,
     }
 }
 
+// Exact sheet layout verified against family.png (reference: 1448 x 1086).
+// Each row contains idle 3, down 3, left 3, right 3, up 3, talk 3.
+// Keep all 18 poses for each relative: 0-3 walking, 4 idle, 5 talking.
+constexpr int FAMILY_STATES=6;
+constexpr int FAMILY_POSES=3;
+constexpr int FAMILY_FRAME_W=62;
+constexpr int FAMILY_FRAME_H=112;
+constexpr int FAMILY_CENTERS[FAMILY_STATES][FAMILY_POSES]={
+    {222,289,356},     // idle
+    {442,506,571},     // walking down
+    {648,712,777},     // walking left
+    {853,918,983},     // walking right
+    {1068,1132,1195}, // walking up
+    {1267,1332,1396}  // talking
+};
+constexpr int FAMILY_TOPS[3]={269,522,782}; // father, mother, Lily
+
 void loadFamilyFrames(SDL_Renderer* r,ArtAssets& art){
 #if RPG_HAS_SDL3_IMAGE
     namespace fs=std::filesystem;
     fs::path sheetPath;
-    for(const fs::path& candidate:{
-            fs::path("assets/family.png"),fs::path("../assets/family.png"),
-            fs::path("../../assets/family.png")}){
+    for(const auto& candidate:{fs::path("assets/family.png"),
+                              fs::path("../assets/family.png"),
+                              fs::path("../../assets/family.png")}){
         if(fs::exists(candidate)){sheetPath=candidate;break;}
     }
     if(sheetPath.empty())return;
     SDL_Surface* sheet=IMG_Load(sheetPath.string().c_str());
-    if(!sheet){std::cerr<<"Family sprite sheet load failed: "<<SDL_GetError()<<"\n";return;}
-    constexpr int FRAME_WIDTH=57, FRAME_HEIGHT=108;
-    constexpr int centers[4][3]={
-        {429,492,554},  // down
-        {632,693,756},  // left
-        {835,895,955},  // right
-        {1034,1097,1158} // up
-    };
-    constexpr int tops[3]={268,515,765}; // father, mother, Lily
-    for(int who=0;who<3;who++)for(int dir=0;dir<4;dir++)for(int frame=0;frame<3;frame++){
-        SDL_Surface* cropped=SDL_CreateSurface(FRAME_WIDTH,FRAME_HEIGHT,SDL_PIXELFORMAT_RGBA32);
+    if(!sheet){std::cerr<<"Family sheet load failed: "<<SDL_GetError()<<"\n";return;}
+    const float sx=float(sheet->w)/1448.f, sy=float(sheet->h)/1086.f;
+    for(int who=0;who<3;who++)for(int state=0;state<FAMILY_STATES;state++)
+    for(int pose=0;pose<FAMILY_POSES;pose++){
+        const int cw=std::max(1,int(std::round(FAMILY_FRAME_W*sx)));
+        const int ch=std::max(1,int(std::round(FAMILY_FRAME_H*sy)));
+        const int cx=int(std::round(FAMILY_CENTERS[state][pose]*sx));
+        const int top=int(std::round(FAMILY_TOPS[who]*sy));
+        SDL_Rect src{cx-cw/2,top,cw,ch};
+        if(src.x<0||src.y<0||src.x+src.w>sheet->w||src.y+src.h>sheet->h)
+            continue;
+        SDL_Surface* cropped=SDL_CreateSurface(cw,ch,SDL_PIXELFORMAT_RGBA32);
         if(!cropped)continue;
-        SDL_Rect src{centers[dir][frame]-FRAME_WIDTH/2,tops[who],FRAME_WIDTH,FRAME_HEIGHT};
         if(SDL_BlitSurface(sheet,&src,cropped,nullptr)){
-            // Flood-fill only the matte connected to the frame edges.
-            // A blanket darkness threshold punched holes in the hair,
-            // beards, shoes, aprons and other shaded clothing.
-            Uint8 matteR=25,matteG=25,matteB=31,matteA=255;
-            SDL_ReadSurfacePixel(cropped,3,3,&matteR,&matteG,&matteB,&matteA);
-            std::vector<Uint8> seen(size_t(FRAME_WIDTH)*FRAME_HEIGHT,0);
+            // Conservative edge flood fill: never remove arbitrary dark pixels
+            // inside hair, shoes, beards or clothing.
+            Uint8 mr=25,mg=25,mb=30,ma=255;
+            SDL_ReadSurfacePixel(cropped,2,2,&mr,&mg,&mb,&ma);
+            std::vector<Uint8> seen(size_t(cw)*ch,0);
             std::vector<int> queue;
             queue.reserve(seen.size());
             auto isMatte=[&](int x,int y){
                 Uint8 red=0,green=0,blue=0,alpha=255;
                 if(!SDL_ReadSurfacePixel(cropped,x,y,&red,&green,&blue,&alpha))return false;
-                constexpr int tolerance=18;
-                return alpha<20 ||
-                    (std::abs(int(red)-int(matteR))<tolerance &&
-                     std::abs(int(green)-int(matteG))<tolerance &&
-                     std::abs(int(blue)-int(matteB))<tolerance);
+                constexpr int tolerance=15;
+                return alpha<20 || (std::abs(int(red)-int(mr))<=tolerance &&
+                       std::abs(int(green)-int(mg))<=tolerance &&
+                       std::abs(int(blue)-int(mb))<=tolerance);
             };
             auto enqueue=[&](int x,int y){
-                if(x<0||y<0||x>=FRAME_WIDTH||y>=FRAME_HEIGHT)return;
-                size_t index=size_t(y)*FRAME_WIDTH+size_t(x);
-                if(seen[index]||!isMatte(x,y))return;
-                seen[index]=1;
-                queue.push_back(int(index));
+                if(x<0||y<0||x>=cw||y>=ch)return;
+                const size_t idx=size_t(y)*cw+size_t(x);
+                if(seen[idx]||!isMatte(x,y))return;
+                seen[idx]=1;queue.push_back(int(idx));
             };
-            for(int x=0;x<FRAME_WIDTH;x++){
-                enqueue(x,0);enqueue(x,FRAME_HEIGHT-1);
-            }
-            for(int y=0;y<FRAME_HEIGHT;y++){
-                enqueue(0,y);enqueue(FRAME_WIDTH-1,y);
-            }
-            for(size_t head=0;head<queue.size();++head){
-                int index=queue[head],x=index%FRAME_WIDTH,y=index/FRAME_WIDTH;
+            for(int x=0;x<cw;x++){enqueue(x,0);enqueue(x,ch-1);}
+            for(int y=0;y<ch;y++){enqueue(0,y);enqueue(cw-1,y);}
+            for(size_t head=0;head<queue.size();head++){
+                int idx=queue[head],x=idx%cw,y=idx/cw;
                 SDL_WriteSurfacePixel(cropped,x,y,0,0,0,0);
                 enqueue(x-1,y);enqueue(x+1,y);enqueue(x,y-1);enqueue(x,y+1);
             }
-            SDL_Texture* frameTexture=SDL_CreateTextureFromSurface(r,cropped);
-            if(frameTexture){
-                SDL_SetTextureScaleMode(frameTexture,SDL_SCALEMODE_NEAREST);
-                SDL_SetTextureBlendMode(frameTexture,SDL_BLENDMODE_BLEND);
+            SDL_Texture* texture=SDL_CreateTextureFromSurface(r,cropped);
+            if(texture){
+                SDL_SetTextureScaleMode(texture,SDL_SCALEMODE_NEAREST);
+                SDL_SetTextureBlendMode(texture,SDL_BLENDMODE_BLEND);
+                // Sheet state order differs from the in-game direction order:
+                // game states 0/1/2/3 = down/left/right/up; 4 idle; 5 talk.
+                const int gameState=state==0?4:(state==5?5:state-1);
+                art.familyFrames[(who*FAMILY_STATES+gameState)*FAMILY_POSES+pose]=texture;
             }
-            art.familyFrames[(who*4+dir)*3+frame]=frameTexture;
         }
         SDL_DestroySurface(cropped);
     }
@@ -429,12 +442,12 @@ void loadFamilyFrames(SDL_Renderer* r,ArtAssets& art){
 #endif
 }
 void drawFamilySprite(SDL_Renderer* r,const ArtAssets& art,int person,
-                      int x,int y,int direction,int frame){
-    const int idx=(person*4+direction)*3+frame;
-    SDL_Texture* texture=art.familyFrames[idx];
+                      int x,int y,int state,int pose){
+    const int index=(person*FAMILY_STATES+state)*FAMILY_POSES+pose;
+    if(index<0||index>=int(art.familyFrames.size()))return;
+    SDL_Texture* texture=art.familyFrames[size_t(index)];
     if(!texture)return;
-    // PNG sheet proportions: scale frames down for the 960x640 world.
-    SDL_FRect destination{float(x-20),float(y-53),40.f,65.f};
+    SDL_FRect destination{float(x-21),float(y-56),42.f,67.f};
     SDL_RenderTexture(r,texture,nullptr,&destination);
 }
 ArtAssets loadArtAssets(SDL_Renderer* renderer){
@@ -1138,10 +1151,11 @@ int main(int argc,char** argv){
                 const int sheetPerson=i==0?1:(i==1?0:2);
                 const bool talking=world.speaker==c.name && !world.dialogue.empty();
                 const int facing=facingSpriteDirection(motion.facing);
+                const int state=talking?5:(motion.moving?facing:4);
                 const int frame=motion.moving?int(motion.walkingTime*6.f)%3:
-                    (talking?int(world.time*3.f)%3:1);
-                if(art.familyFrames[(sheetPerson*4+facing)*3+frame])
-                    drawFamilySprite(renderer,art,sheetPerson,int(c.p.x),int(c.p.y),facing,frame);
+                    (talking?int(world.time*3.f)%3:int(world.time*1.5f+float(i))%3);
+                if(art.familyFrames[(sheetPerson*FAMILY_STATES+state)*FAMILY_POSES+frame])
+                    drawFamilySprite(renderer,art,sheetPerson,int(c.p.x),int(c.p.y),state,frame);
                 else drawPerson(renderer,c);
             }
         }else if(world.scene==Scene::VILLAGE){
