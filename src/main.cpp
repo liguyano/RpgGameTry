@@ -775,6 +775,77 @@ void loadVillagerFrames(SDL_Renderer* renderer,ArtAssets& art){
     (void)renderer;(void)art;
 #endif
 }
+// Extract individually positioned furniture from the labelled-free shopitems.png.
+// Edge-connected near-black matte is transparent; the wooden furniture stays
+// opaque, including dark recesses not connected to the cell border.
+void loadShopFurniture(SDL_Renderer* renderer,ArtAssets& art){
+#if RPG_HAS_SDL3_IMAGE
+    namespace fs=std::filesystem;
+    fs::path imageFile;
+    for(const auto& candidate:{fs::path("assets/shopitems.png"),
+                               fs::path("../assets/shopitems.png"),
+                               fs::path("../../assets/shopitems.png")}){
+        if(fs::exists(candidate)){imageFile=candidate;break;}
+    }
+    if(imageFile.empty())return;
+    SDL_Surface* image=IMG_Load(imageFile.string().c_str());
+    if(!image){std::cerr<<"shopitems.png: "<<SDL_GetError()<<"\n";return;}
+    const float sx=float(image->w)/1536.f,sy=float(image->h)/1024.f;
+    for(size_t i=0;i<shop::furniture.size();i++){
+        const auto& prop=shop::furniture[i];
+        SDL_Rect from{int(prop.srcX*sx),int(prop.srcY*sy),
+                      std::max(1,int(prop.srcW*sx)),std::max(1,int(prop.srcH*sy))};
+        if(from.x<0||from.y<0||from.x+from.w>image->w||
+           from.y+from.h>image->h)continue;
+        SDL_Surface* crop=SDL_CreateSurface(from.w,from.h,SDL_PIXELFORMAT_RGBA32);
+        if(!crop)continue;
+        if(SDL_BlitSurface(image,&from,crop,nullptr)){
+            std::vector<Uint8> marked(size_t(from.w)*size_t(from.h),0);
+            std::vector<int> q;
+            auto isMatte=[&](int x,int y){
+                Uint8 r=0,g=0,b=0,a=255;
+                if(!SDL_ReadSurfacePixel(crop,x,y,&r,&g,&b,&a))return false;
+                return a<16 || (r<48 && g<38 && b<40);
+            };
+            auto enqueue=[&](int x,int y){
+                if(x<0||y<0||x>=from.w||y>=from.h)return;
+                size_t k=size_t(y)*size_t(from.w)+size_t(x);
+                if(marked[k]||!isMatte(x,y))return;
+                marked[k]=1;q.push_back(int(k));
+            };
+            for(int x=0;x<from.w;x++){enqueue(x,0);enqueue(x,from.h-1);}
+            for(int y=0;y<from.h;y++){enqueue(0,y);enqueue(from.w-1,y);}
+            for(size_t head=0;head<q.size();head++){
+                const int index=q[head],x=index%from.w,y=index/from.w;
+                SDL_WriteSurfacePixel(crop,x,y,0,0,0,0);
+                enqueue(x-1,y);enqueue(x+1,y);
+                enqueue(x,y-1);enqueue(x,y+1);
+            }
+            art.shopFurniture[i]=SDL_CreateTextureFromSurface(renderer,crop);
+            if(art.shopFurniture[i]){
+                SDL_SetTextureScaleMode(art.shopFurniture[i],SDL_SCALEMODE_NEAREST);
+                SDL_SetTextureBlendMode(art.shopFurniture[i],SDL_BLENDMODE_BLEND);
+            }
+        }
+        SDL_DestroySurface(crop);
+    }
+    SDL_DestroySurface(image);
+#else
+    (void)renderer;(void)art;
+#endif
+}
+void drawShopFurniture(SDL_Renderer* r,const ArtAssets& art,
+                       float playerY,bool foreground){
+    for(size_t i=0;i<shop::furniture.size();i++){
+        const auto& p=shop::furniture[i];
+        if((p.footY>playerY)!=foreground)continue;
+        SDL_Texture* t=art.shopFurniture[i];
+        if(!t)continue;
+        const SDL_FRect dst{p.x,p.y,p.w,p.h};
+        SDL_RenderTexture(r,t,nullptr,&dst);
+    }
+}
+
 ArtAssets loadArtAssets(SDL_Renderer* renderer){
     ArtAssets result;
 #if RPG_HAS_SDL3_IMAGE
