@@ -1442,7 +1442,7 @@ int main(int argc,char** argv){
                         }
                     }
                     {
-                        const Vec2 center=village::fountainCenter();
+                        const Vec2 center=village::fountainCollisionCenter();
                         const float radius=village::FOUNTAIN_RADIUS;
                         color(renderer,245,193,76,245);
                         for(int j=0;j<48;j++){
