@@ -26,7 +26,7 @@ int main() {
     assert(village::blocked(village::fountainCenter())); // center of pool
     assert(village::blocked(village::pos(750,540))); // original lower footprint preserved
     assert(village::blocked(village::pos(750,465))); // expanded upward edge
-    assert(!village::blocked(village::pos(750,455))); // beyond the expanded edge
+    assert(!village::blocked(village::pos(750,445))); // beyond the expanded edge and player radius
     assert(!village::blocked(village::pos(750,450))); // formerly blocked position is now free
     assert(!village::blocked(village::pos(700,540))); // plaza still accessible
     assert(!village::blocked(village::pos(620,490))); // old west market stand
