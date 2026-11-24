@@ -702,16 +702,17 @@ void loadVillagerFrames(SDL_Renderer* renderer,ArtAssets& art){
     if(file.empty()){std::cerr<<"villager.png missing; using simple NPCs\n";return;}
     SDL_Surface* sheet=IMG_Load(file.string().c_str());
     if(!sheet){std::cerr<<"Cannot load villager.png: "<<SDL_GetError()<<"\n";return;}
-    constexpr std::array<int,8> startX{{122,324,508,701,880,1060,1243,1431}};
-    constexpr std::array<int,8> spacing{{45,42,42,39,39,39,38,32}};
-    constexpr std::array<int,4> topY{{79,160,242,321}};
+    // Measured against the actual 1536x1024 villager sheet, not a uniform grid.
+    constexpr std::array<int,8> startX{{122,326,511,698,871,1040,1207,1390}};
+        constexpr std::array<int,8> spacing{{45,42,42,39,40,39,42,41}};
+        constexpr std::array<int,4> topY{{80,161,242,323}};
     const float sx=float(sheet->w)/1536.f,sy=float(sheet->h)/1024.f;
     int loaded=0;
     for(int who=0;who<8;who++)for(int direction=0;direction<4;direction++)
     for(int pose=0;pose<4;pose++){
         const int cx=startX[size_t(who)]+spacing[size_t(who)]*pose;
-        const int left=int((cx-18)*sx),top=int(topY[size_t(direction)]*sy);
-        const int w=std::max(1,int(36*sx)),h=std::max(1,int(69*sy));
+        const int left=int((cx-17)*sx),top=int(topY[size_t(direction)]*sy);
+        const int w=std::max(1,int(34*sx)),h=std::max(1,int(65*sy));
         if(left<0||top<0||left+w>sheet->w||top+h>sheet->h)continue;
         SDL_Surface* crop=SDL_CreateSurface(w,h,SDL_PIXELFORMAT_RGBA32);
         if(!crop)continue;
@@ -723,9 +724,12 @@ void loadVillagerFrames(SDL_Renderer* renderer,ArtAssets& art){
             auto background=[&](int x,int y){
                 Uint8 red=0,green=0,blue=0,alpha=255;
                 if(!SDL_ReadSurfacePixel(crop,x,y,&red,&green,&blue,&alpha))return false;
-                return alpha<16 || (red<58 && green<58 && blue<66 &&
-                    std::abs(int(red)-int(green))<18 &&
-                    std::abs(int(green)-int(blue))<19);
+                // Only near-neutral matte matching the artwork backdrop.
+                // Do not flood through dark hair, shoes, clothing or outlines.
+                const int r=int(red),g=int(green),b=int(blue);
+                return alpha<16 || (r>=17 && r<=41 &&
+                    g>=16 && g<=41 && b>=19 && b<=46 &&
+                    std::abs(r-g)<=10 && std::abs(b-g)<=13);
             };
             auto add=[&](int x,int y){
                 if(x<0||y<0||x>=w||y>=h)return;
