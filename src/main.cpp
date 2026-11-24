@@ -352,7 +352,7 @@ void drawAnimatedFountain(SDL_Renderer* renderer,const ArtAssets& art,
         SDL_RenderTexture(renderer,art.fountainBase,nullptr,&dst);
         float width=0.f,height=0.f;
         if(SDL_GetTextureSize(art.fountainWater,&width,&height)){
-            const int frame=int(seconds*9.f)%12;
+            const int frame=village::fountainWaterFrame(seconds);
             const float cellW=width/4.f,cellH=height/3.f;
             const SDL_FRect source{float(frame%4)*cellW,float(frame/4)*cellH,
                                    cellW,cellH};
