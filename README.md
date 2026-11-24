@@ -3,14 +3,15 @@
 The village now has an optional shop interior built from two image assets:
 `assets/shopback.png` fills the 960×640 room and individual props cropped from
 `assets/shopitems.png` create shelves, wooden counters, tables and barrels.
-Their bottom footprints are collidable, and F3 shows the approximate collision
-rectangles. The shopkeeper reuses the existing merchant character graphics.
+Furniture uses shape-specific collision footprints (including the full upper
+body of barrels and crates) and its front/back draw sorting uses the same
+feet depth. F3 shows the collision rectangles. The shopkeeper reuses the existing merchant character graphics.
 
 In the large village, walk south of the shop near image coordinate (1104, 731)
 and press **E** when the **E SHOP** marker appears. The shop may be visited
 without advancing or resetting the chapter quest. Inside, walk toward the
 counter and press **E** to open the general-store purchase menu. Use
-**Up/Down** to select a product, **Enter/E** to buy and **Esc/B** to close.
+**Mouse hover** to highlight a product and **left-click** to buy; click the top-right **X** to close. **Up/Down**, **Enter/E**, and **Esc/B** still work.
 Purchases deduct the displayed gold price and put an item in the first open
 backpack slot; out-of-gold and full-inventory conditions show messages.
 Walk back to the entrance and press **E** to return to the village.
