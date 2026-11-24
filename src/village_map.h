@@ -50,22 +50,25 @@ inline Polygon polygon(std::initializer_list<game::Vec2> imagePoints){
     for(auto v:imagePoints)if(p.count<p.points.size())p.points[p.count++]=pos(v.x,v.y);
     return p;
 }
-inline const std::array<Polygon,13>& obstacles(){
-    static const std::array<Polygon,13> zones{{
-        // Buildings: the house footprint, not the decorative overhanging trees.
-        polygon({{294,143},{462,140},{470,291},{285,290}}), // northwest house
-        polygon({{592,129},{745,124},{748,235},{589,239}}), // northern house
-        polygon({{882,209},{1031,207},{1042,332},{881,332}}), // east house
-        polygon({{354,326},{566,319},{566,454},{351,462}}), // blue roof at west
-        polygon({{611,282},{758,277},{758,388},{613,390}}), // plaza house
-        polygon({{306,514},{502,510},{504,701},{303,704}}), // southwest inn
-        polygon({{988,530},{1173,529},{1173,710},{981,711}}), // east blue-roof home
-        polygon({{617,698},{806,691},{808,842},{618,840}}), // southern cottage
-        polygon({{308,783},{480,786},{487,893},{308,892}}), // southern blue-roof house
-        polygon({{1301,579},{1492,577},{1498,806},{1311,813}}), // watermill building
-        polygon({{1180,0},{1381,0},{1388,154},{1188,159}}), // church
-        polygon({{0,264},{157,264},{153,432},{0,432}}), // windmill
-        polygon({{839,376},{972,380},{974,503},{837,501}}) // large central tree
+// Small ground-contact collision only: roofs and foliage are visual occluders,
+// not solid walls. Positions track VILLAGE_PROPS in the renderer.
+// All positions are in the original 1536x1024 artwork coordinates.
+inline const std::array<Polygon,12>& obstacles(){
+    static const std::array<Polygon,12> zones{{
+        // Buildings: small foundations around the entrance/feet, not whole roofs.
+        polygon({{356,287},{451,287},{451,321},{356,321}}), // cottage
+        polygon({{640,294},{717,294},{717,325},{640,325}}), // farmhouse
+        polygon({{928,347},{1004,347},{1004,375},{928,375}}), // tavern
+        polygon({{1078,662},{1138,662},{1138,696},{1078,696}}), // shop
+        polygon({{381,643},{446,643},{446,674},{381,674}}), // stone house
+        polygon({{681,820},{749,820},{749,853},{681,853}}), // blue roof house
+        // Trees: collide with narrow trunks only; walk beneath the canopy.
+        polygon({{861,450},{883,450},{883,472},{861,472}}), // oak
+        polygon({{554,509},{568,509},{568,525},{554,525}}), // green deciduous
+        polygon({{1190,590},{1206,590},{1206,609},{1190,609}}), // pine
+        polygon({{1325,300},{1342,300},{1342,319},{1325,319}}), // blossom
+        polygon({{285,810},{302,810},{302,825},{285,825}}), // apple
+        polygon({{192,308},{211,308},{211,328},{192,328}})  // spreading tree
     }};
     return zones;
 }
