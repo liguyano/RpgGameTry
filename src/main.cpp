@@ -166,6 +166,7 @@ struct World {
     bool inventoryOpen=false;
     bool shopMenu=false;
     int shopSelection=0;
+    std::string shopFeedback;
     int inventorySelection=0;
     std::array<int,24> bag{{1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,0,0,0,0,0,0,0,0}};
     std::array<int,6> equipped{{0,0,0,0,0,0}};
@@ -1691,6 +1692,7 @@ inline const Vec2 SHOP_VILLAGE_ENTRY=village::pos(1104.f,731.f);
 void enterShop(World& w){
     w.scene=Scene::SHOP;
     w.shopMenu=false;
+    w.shopFeedback.clear();
     w.hero.pos=shop::ARRIVAL;
     w.hero.facing={0.f,-1.f};
     w.hero.moving=false;
@@ -1699,6 +1701,7 @@ void enterShop(World& w){
 void exitShop(World& w){
     w.scene=Scene::VILLAGE;
     w.shopMenu=false;
+    w.shopFeedback.clear();
     w.hero.pos=w.largeVillage?village::pos(1104.f,745.f):Vec2{670.f,425.f};
     w.hero.facing={0.f,1.f};
     w.hero.moving=false;
@@ -1809,6 +1812,17 @@ void interact(World& w){
 }
 void drawInteractPrompt(SDL_Renderer* r,const World& w){
     if(!w.dialogue.empty() || w.story>=9)return;
+    if(w.scene==Scene::SHOP){
+        const bool atDoor=shop::nearDoor(w.hero.pos);
+        const bool atCounter=shop::nearMerchant(w.hero.pos);
+        if(atDoor||atCounter){
+            const Vec2 target=atDoor?shop::ENTRANCE:shop::SHOPKEEPER;
+            rect(r,int(target.x)-20,int(target.y)-72,40,27,34,35,43);
+            outline(r,int(target.x)-20,int(target.y)-72,40,27,215,182,114);
+            fillText(r,"E",int(target.x)-6,int(target.y)-66,3,250,226,154);
+        }
+        return;
+    }
     Vec2 target{};
     switch(w.story){
         case 0:target=w.family[0].position;break;
@@ -1828,6 +1842,18 @@ void drawInteractPrompt(SDL_Renderer* r,const World& w){
     rect(r,int(target.x)-20,int(target.y)-77,40,29,34,35,43);
     outline(r,int(target.x)-20,int(target.y)-77,40,29,215,182,114);
     fillText(r,"E",int(target.x)-5,int(target.y)-70,3,250,226,154);
+    if(w.scene==Scene::VILLAGE){
+        Vec2 door=w.largeVillage?SHOP_VILLAGE_ENTRY:Vec2{670.f,425.f};
+        if(withinRange(w.hero.pos,door,125.f)){
+            if(w.largeVillage){
+                const Vec2 camera=village::camera(w.hero.pos);
+                door.x-=camera.x;door.y-=camera.y;
+            }
+            rect(r,int(door.x)-48,int(door.y)-80,96,36,34,35,43);
+            outline(r,int(door.x)-48,int(door.y)-80,96,36,215,182,114);
+            fillText(r,"E SHOP",int(door.x)-35,int(door.y)-69,2,250,226,154);
+        }
+    }
 }
 
 void drawOverlay(SDL_Renderer* r,const World& w){
@@ -1963,6 +1989,29 @@ void drawQuickbar(SDL_Renderer* renderer,const World& w,const ArtAssets& art){
         fillText(renderer,std::to_string(i+1),int(x+18),int(y+40),1,240,207,147);
     }
 }
+void drawShopMenu(SDL_Renderer* r,const World& w,const ArtAssets& art){
+    SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(r,4,9,16,205);
+    SDL_FRect dim{0.f,0.f,float(WIDTH),float(HEIGHT)};
+    SDL_RenderFillRect(r,&dim);
+    SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_NONE);
+    uiBox(r,176.f,102.f,608.f,460.f);
+    fillText(r,"GENERAL STORE",225,131,4,246,207,138);
+    fillText(r,"GOLD: "+std::to_string(w.gold),565,143,2,244,211,143);
+    for(int i=0;i<int(SHOP_GOODS.size());i++){
+        const int id=SHOP_GOODS[size_t(i)];
+        const int x=217,y=200+55*i;
+        if(i==w.shopSelection){
+            uiBox(r,float(x-13),float(y-8),526.f,52.f);
+        }
+        itemIcon(r,art,id,float(x),float(y-3),41.f);
+        fillText(r,itemView(id).name,x+68,y+7,2,239,218,183);
+        fillText(r,std::to_string(SHOP_PRICES[size_t(i)])+" G",x+425,y+7,2,243,198,107);
+    }
+    fillText(r,w.shopFeedback.empty()?"UP/DOWN: SELECT   ENTER/E: BUY   ESC: CLOSE":w.shopFeedback,
+             218,528,2,241,204,151);
+}
+
 void drawInventory(SDL_Renderer* renderer,const World& w,const ArtAssets& art){
     SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(renderer,5,9,17,202);
@@ -2050,6 +2099,23 @@ int main(int argc,char** argv){
                 clickInventory(world,ev.button.x,ev.button.y);
             }
             if(ev.type==SDL_EVENT_KEY_DOWN && ev.key.repeat==0){
+                if(world.shopMenu){
+                    if(ev.key.key==SDLK_ESCAPE || ev.key.key==SDLK_B){
+                        world.shopMenu=false;
+                    }else if(ev.key.key==SDLK_UP){
+                        world.shopSelection=(world.shopSelection+int(SHOP_GOODS.size())-1)%int(SHOP_GOODS.size());
+                        world.shopFeedback.clear();
+                    }else if(ev.key.key==SDLK_DOWN){
+                        world.shopSelection=(world.shopSelection+1)%int(SHOP_GOODS.size());
+                        world.shopFeedback.clear();
+                    }else if(ev.key.key==SDLK_RETURN || ev.key.key==SDLK_E){
+                        const PurchaseResult outcome=buyShopItem(world,world.shopSelection);
+                        world.shopFeedback=outcome==PurchaseResult::BOUGHT?"PURCHASE COMPLETE":
+                            outcome==PurchaseResult::NO_GOLD?"NOT ENOUGH GOLD":
+                            outcome==PurchaseResult::BAG_FULL?"BACKPACK IS FULL":"CANNOT BUY ITEM";
+                    }
+                    continue;
+                }
                 if(ev.key.key==SDLK_I || ev.key.key==SDLK_B){
                     world.inventoryOpen=!world.inventoryOpen;
                     continue;
@@ -2095,7 +2161,7 @@ int main(int argc,char** argv){
         float dt=static_cast<float>(now-last)/static_cast<float>(SDL_GetPerformanceFrequency());
         last=now;
         dt=clamp(dt,0.f,0.035f);
-        if(!world.inventoryOpen)update(world,SDL_GetKeyboardState(nullptr),dt);
+        if(!world.inventoryOpen && !world.shopMenu)update(world,SDL_GetKeyboardState(nullptr),dt);
         if(world.story!=noticeStory || world.scene!=noticeScene){
             noticeStory=world.story;
             noticeScene=world.scene;
@@ -2121,6 +2187,21 @@ int main(int argc,char** argv){
                 if(art.familyFrames[(sheetPerson*FAMILY_STATES+state)*FAMILY_POSES+frame])
                     drawFamilySprite(renderer,art,sheetPerson,int(c.p.x),int(c.p.y),state,frame);
                 else drawPerson(renderer,c);
+            }
+        }else if(world.scene==Scene::SHOP){
+            if(art.shopBackground)drawBackground(renderer,art.shopBackground);
+            else drawCottage(renderer,world.time);
+            Character keeper{{480.f,250.f},"SHOPKEEPER",143,89,58,false,false};
+            drawVillagerSprite(renderer,art,2,keeper.p,{0.f,1.f},false,0.f,keeper);
+            drawShopFurniture(renderer,art,world.hero.pos.y,false);
+            if(world.showCollision){
+                for(const auto& prop:shop::furniture){
+                    if(!prop.solid)continue;
+                    color(renderer,241,124,64,255);
+                    SDL_FRect footprint{prop.x+4.f,prop.y+prop.h*0.57f,
+                                         prop.w-8.f,prop.h*(1.f-0.57f)-4.f};
+                    SDL_RenderRect(renderer,&footprint);
+                }
             }
         }else if(world.scene==Scene::VILLAGE){
             if(world.largeVillage && art.village){
@@ -2190,6 +2271,8 @@ int main(int argc,char** argv){
                 drawKnight(renderer,heroScreen,world.hero.facing,world.hero.slashTimer,world.hero.hurtTimer>0);
             else drawYoungHero(renderer,heroScreen);
         }
+        if(world.scene==Scene::SHOP)
+            drawShopFurniture(renderer,art,world.hero.pos.y,true);
         if(world.scene==Scene::VILLAGE && world.largeVillage){
             const Vec2 camera=village::camera(world.hero.pos);
             drawVillageProps(renderer,art,camera,world.hero.pos.y,true);
@@ -2203,6 +2286,7 @@ int main(int argc,char** argv){
         drawOverlay(renderer,world);
         drawDialogue(renderer,world,art,fonts);
         if(world.inventoryOpen)drawInventory(renderer,world,art);
+        else if(world.shopMenu)drawShopMenu(renderer,world,art);
         else if(world.dialogue.empty())drawQuickbar(renderer,world,art);
         SDL_RenderPresent(renderer);
         if(!(SDL_GetWindowFlags(window)&SDL_WINDOW_INPUT_FOCUS))SDL_Delay(16);
