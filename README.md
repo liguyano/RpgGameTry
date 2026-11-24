@@ -72,6 +72,10 @@ No new library is required beyond the existing SDL3 and SDL3_image SDKs.
 
 The game now loads `assets/hero.png` through SDL3_image and extracts **16 walking frames** (four frames for each of down, left, right and up). WASD picks the facing row and advances the animation; standing still displays the initial pose. The hero sprites are drawn in the home, scrolling village and outskirts. The image is a labeled concept sheet rather than a transparent production atlas, so each frame's connected dark background is automatically removed on load and some edge artifacts may remain. If the PNG is unavailable, the original program-drawn hero is used.
 
+## Air-wall cleanup (current village ground map)
+
+The former village's fountain, stalls, decorative wall boxes and oversize old forest/cliff polygons were removed from collision because those objects no longer exist in the **new** `village.png`. House/tree colliders still follow their separate placed props, and water/river collision remains. Press **F3** to inspect real building and water boundaries. Collision shapes are hand-authored approximations; cliff and coast detail will need new collision data based on the current ground image.
+
 ## Expanded village collision and camera
 
 Put your generated **`village.png`** in `assets/` and commit/push it once. The artwork is **not yet in the remote repository** until you add it. When the file exists and SDL3_image is available, the village uses a **2304x1536 world** (the 1536x1024 image enlarged 1.5x), with a smooth camera following the player.
