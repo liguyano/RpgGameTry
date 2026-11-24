@@ -1,3 +1,21 @@
+## Seamless doors and right-side bridge access
+
+- The upper-right bridge and lower mill bridge now allow uninterrupted
+  movement across the river and both approaches; F3 displays the collision
+  geometry. Crossing tests cover the full upper bridge and the lower path.
+- After the opening scene, walk **south through the cottage door** to enter
+  the village without speaking to every family member or pressing E. The
+  quest progression is brought forward to the village chapter when needed.
+- Walk **north into the original cottage's doorway** (near village image
+  position 405, 362) to go home again. Inventory, gold, and quest state are
+  preserved. Walk south out again whenever you wish.
+- Walk **east over the mill bridge** toward the right-bank path (near village
+  image position 1395, 751) to enter the outskirts automatically. No E prompt
+  or forced dialogue is needed. While outside the battle, moving west to the
+  outskirts edge returns you to the village.
+- The general-store exit is also walk-through; shopping with the merchant
+  still uses E or the mouse. Existing E interactions remain for conversation.
+
 ## General store: separate room, furniture and buying
 
 The village now has an optional shop interior built from two image assets:
