@@ -1164,6 +1164,11 @@ void reset(World& w){
             w.enemies[i].pos={345.f+static_cast<float>(i%4)*72.f,
                                335.f+static_cast<float>(i/4)*62.f};
 }
+void goVillage(World& w);
+void goOutskirts(World& w);
+void exitShop(World& w);
+void enterHome(World& w);
+
 void attack(World& w){
     if(w.story<9 || !w.dialogue.empty() || w.won || w.lost || w.hero.slashTimer>0) return;
     w.hero.slashTimer=0.32f;
@@ -1215,6 +1220,44 @@ void update(World& w,const bool* keys,float dt){
             else moveBody(w.hero.pos,{dir.x*PLAYER_SPEED,dir.y*PLAYER_SPEED},dt,11);
         }
     }
+    // Walk through doorways without pressing E or finishing an NPC dialogue.
+    // Directional triggers prevent bouncing straight back on scene entry.
+    if(dir.x!=0.f || dir.y!=0.f){
+        if(w.scene==Scene::HOME && dir.y>0.25f &&
+           w.hero.pos.y>=HEIGHT-97.f &&
+           w.hero.pos.x>418.f && w.hero.pos.x<550.f){
+            w.story=std::max(w.story,4);
+            goVillage(w);
+            return;
+        }
+        if(w.scene==Scene::VILLAGE){
+            const Vec2 door=w.largeVillage?village::pos(405.f,362.f):Vec2{400.f,275.f};
+            if(dir.y<-.30f && withinRange(w.hero.pos,door,44.f)){
+                enterHome(w);
+                return;
+            }
+            // Cross the east / mill bridge before the outskirts transition.
+            const Vec2 exit=w.largeVillage?village::pos(1395.f,751.f):Vec2{832.f,345.f};
+            if(dir.x>0.3f && withinRange(w.hero.pos,exit,51.f)){
+                w.story=std::max(w.story,8);
+                goOutskirts(w);
+                return;
+            }
+        }
+        if(w.scene==Scene::SHOP && dir.y>0.30f && shop::nearDoor(w.hero.pos)){
+            exitShop(w);
+            return;
+        }
+        if(w.scene==Scene::OUTSKIRTS && w.story<9 && dir.x<-.30f &&
+           w.hero.pos.x<=35.f){
+            w.scene=Scene::VILLAGE;
+            w.hero.pos=w.largeVillage?village::pos(1376.f,751.f):Vec2{780.f,345.f};
+            w.hero.facing={-1.f,0.f};
+            w.hero.moving=false;
+            w.dialogue.clear();
+            return;
+        }
+    }
     if(w.story<9)return;
     for(auto& e:w.enemies){
         if(e.hp<=0)continue;
@@ -1254,7 +1297,7 @@ const std::array<Vec2,3> LARGE_VILLAGE_NPCS{{
     village::pos(670,564),
     village::pos(971,767)
 }};
-const Vec2 LARGE_VILLAGE_EXIT=village::pos(1158,760);
+const Vec2 LARGE_VILLAGE_EXIT=village::pos(1395.f,751.f);
 Vec2 npcPosition(const World& w,int index){
     if(w.largeVillage)return LARGE_VILLAGE_NPCS[size_t(index)];
     constexpr std::array<Vec2,3> fallback{{{480,255},{345,325},{670,325}}};
@@ -1684,8 +1727,17 @@ void showDialogue(World& w,const char* speaker,const char* words) {
 }
 void goVillage(World& w){
     w.scene=Scene::VILLAGE;
-    w.hero.pos=w.largeVillage?village::pos(545,755):Vec2{477,480};
-    showDialogue(w,"HERO","THE VILLAGE IS BUSY TODAY.\nI SHOULD FIND ELDER ROWAN.");
+    w.hero.pos=w.largeVillage?village::pos(405.f,385.f):Vec2{400.f,315.f};
+    w.hero.facing={0.f,1.f};
+    w.hero.moving=false;
+    w.dialogue.clear();
+}
+void enterHome(World& w){
+    w.scene=Scene::HOME;
+    w.hero.pos={480.f,HEIGHT-155.f};
+    w.hero.facing={0.f,-1.f};
+    w.hero.moving=false;
+    w.dialogue.clear();
 }
 // The shop is an optional side activity; leave story quest progress unchanged.
 inline const Vec2 SHOP_VILLAGE_ENTRY=village::pos(1104.f,731.f);
@@ -1696,7 +1748,7 @@ void enterShop(World& w){
     w.hero.pos=shop::ARRIVAL;
     w.hero.facing={0.f,-1.f};
     w.hero.moving=false;
-    showDialogue(w,"HERO","A COZY GENERAL STORE. I SHOULD SEE WHAT IS FOR SALE.");
+    w.dialogue.clear();
 }
 void exitShop(World& w){
     w.scene=Scene::VILLAGE;
@@ -1705,7 +1757,7 @@ void exitShop(World& w){
     w.hero.pos=w.largeVillage?village::pos(1104.f,745.f):Vec2{670.f,425.f};
     w.hero.facing={0.f,1.f};
     w.hero.moving=false;
-    showDialogue(w,"HERO","BACK TO ASHVALE VILLAGE.");
+    w.dialogue.clear();
 }
 inline constexpr std::array<int,6> SHOP_GOODS{{12,14,15,16,5,8}};
 inline constexpr std::array<int,6> SHOP_PRICES{{22,8,6,5,54,36}};
@@ -1725,8 +1777,10 @@ PurchaseResult buyShopItem(World& w,int slot){
 
 void goOutskirts(World& w){
     w.scene=Scene::OUTSKIRTS;
-    w.hero.pos={138,355};
-    showDialogue(w,"HERO","THAT SMOKE IS NOT FROM A CHIMNEY.\nSOMETHING IS WRONG NEAR THE ROAD.");
+    w.hero.pos={138.f,355.f};
+    w.hero.facing={1.f,0.f};
+    w.hero.moving=false;
+    w.dialogue.clear();
 }
 void beginBattle(World& w){
     w.story=9;
@@ -1760,7 +1814,7 @@ void interact(World& w){
     if(w.story==2 && withinRange(w.hero.pos,w.family[2].position,72)){
         w.story=3;showDialogue(w,"LILY","COME HOME BEFORE SUNSET!\nI MADE YOU A LUCKY CHARM.");return;
     }
-    if(w.story==3 && w.hero.pos.y>HEIGHT-130 && w.hero.pos.x>395 && w.hero.pos.x<570){
+    if(w.scene==Scene::HOME && w.hero.pos.y>HEIGHT-130 && w.hero.pos.x>395 && w.hero.pos.x<570){
         w.story=4;goVillage(w);return;
     }
     if(w.story==4 && withinRange(w.hero.pos,npcPosition(w,0),75)){
@@ -1772,8 +1826,10 @@ void interact(World& w){
     if(w.story==6 && withinRange(w.hero.pos,npcPosition(w,2),75)){
         w.story=7;showDialogue(w,"GUARD","I HEARD SCREAMS BEYOND THE FIELD.\nTAKE CARE IF YOU INVESTIGATE.");return;
     }
-    if(w.story==7 && withinRange(w.hero.pos,w.largeVillage?LARGE_VILLAGE_EXIT:Vec2{825,340},80)){
-        w.story=8;goOutskirts(w);return;
+    if(w.scene==Scene::VILLAGE &&
+       withinRange(w.hero.pos,w.largeVillage?LARGE_VILLAGE_EXIT:Vec2{825,340},80)){
+        w.story=std::max(w.story,8);
+        goOutskirts(w);return;
     }
     if(w.story==8 && withinRange(w.hero.pos,{782,285},90)){
         beginBattle(w);return;
