@@ -32,6 +32,33 @@ ctest --test-dir build --output-on-failure
 
 CMake automatically detects both SDL3 and SDL3_image at the above local SDK paths, and copies their DLLs and the `assets/` directory into `build/`. The `SDL3_image-3.4.8/` SDK is local only and must not be committed. Without SDL3_image the game still builds and uses BMP/procedural artwork.
 
+## SDL3_ttf dialogue typography (3.2.2)
+
+Extract `SDL3_ttf-devel-3.2.2-mingw.tar.gz` alongside the other local SDKs:
+
+```text
+RpgGameTry/
+  SDL3_ttf-3.2.2/
+    x86_64-w64-mingw32/
+      include/SDL3_ttf/
+      lib/cmake/SDL3_ttf/
+      bin/
+```
+
+CMake automatically finds the matching 64-bit MinGW SDK, links SDL3_ttf,
+and copies the SDK runtime DLLs alongside the executable.
+
+For the dialogue font, optionally put **your own licensed TTF or OTF font** at
+`assets/fonts/dialogue.ttf` or `assets/fonts/dialogue.otf`. Without one,
+the game tries Windows Georgia, Segoe UI and Arial, then a Linux DejaVu font.
+If no font or SDL3_ttf is available, built-in pixel lettering still works.
+
+Dialogue now uses actual lowercase glyphs, UTF-8 capable SDL3_ttf rendering,
+word wrapping, and a typewriter reveal at about 34 characters/second.
+Press **E or Space** once to show the full line, and again to continue.
+The renderer caches dialogue textures rather than recreating the same text
+every game frame.
+
 ## Village object layers and moving family NPCs
 
 - `assets/village.png` supplies the **ground and roads** without houses or trees.
