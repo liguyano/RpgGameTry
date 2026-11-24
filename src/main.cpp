@@ -297,10 +297,21 @@ void loadVillageProps(SDL_Renderer* renderer,ArtAssets& art){
             std::vector<Uint8> seen(size_t(src.w)*size_t(src.h),0);
             std::vector<int> queue;
             queue.reserve(seen.size());
+            // The previous broad RGB<58 key removed shaded leaves and wood.
+            // Find the near-black matte color at an outer corner, and erase
+            // ONLY matching pixels connected to the crop's outer perimeter.
+            Uint8 matteR=0,matteG=0,matteB=0,matteA=255;
+            SDL_ReadSurfacePixel(crop,2,2,&matteR,&matteG,&matteB,&matteA);
             auto dark=[&](int x,int y){
                 Uint8 r=0,g=0,b=0,a=255;
                 if(!SDL_ReadSurfacePixel(crop,x,y,&r,&g,&b,&a))return false;
-                return a<24 || (r<58 && g<58 && b<58);
+                if(a<12)return true;
+                constexpr int tolerance=12;
+                // Only dark, nearly neutral sheet backgrounds may be removed.
+                return matteR<50 && matteG<50 && matteB<50 &&
+                    std::abs(int(r)-int(matteR))<=tolerance &&
+                    std::abs(int(g)-int(matteG))<=tolerance &&
+                    std::abs(int(b)-int(matteB))<=tolerance;
             };
             auto enqueue=[&](int x,int y){
                 if(x<0||y<0||x>=src.w||y>=src.h)return;
@@ -734,7 +745,7 @@ void update(World& w,const bool* keys,float dt){
             w.hero.pos.x=clamp(w.hero.pos.x+dir.x*PLAYER_SPEED*dt,20.f,float(WIDTH-20));
             w.hero.pos.y=clamp(w.hero.pos.y+dir.y*PLAYER_SPEED*dt,195.f,float(HEIGHT-20));
         }else{
-            if(w.largeVillage)village::move(w.hero.pos,{dir.x*PLAYER_SPEED,dir.y*PLAYER_SPEED},dt,11);
+            if(w.largeVillage)village::move(w.hero.pos,{dir.x*PLAYER_SPEED,dir.y*PLAYER_SPEED},dt,8);
             else moveBody(w.hero.pos,{dir.x*PLAYER_SPEED,dir.y*PLAYER_SPEED},dt,11);
         }
     }
