@@ -392,6 +392,10 @@ void loadFountainFrames(SDL_Renderer* renderer,ArtAssets& art){
 // share the same destination, so there is no drifting across frames.
 // Play the new twelve-frame atlas directly, without synthetic water droplets,
 // height changes, or the old animated fountain-water layer.
+// The generated water sprites include a painted pool and must NOT be drawn
+// as a complete second fountain over the stone base: that hides the rim.
+// Crop them to the actual falling-water region, then draw the lower stone rim
+// on top. Both textures use the same 362x362 source-frame coordinates.
 void drawAnimatedFountain(SDL_Renderer* renderer,const ArtAssets& art,
                           Vec2 camera,float heroY,float seconds,bool foreground){
     const float fountainY=village::fountainCenter().y;
@@ -400,24 +404,40 @@ void drawAnimatedFountain(SDL_Renderer* renderer,const ArtAssets& art,
     const float s=village::SCALE;
     const SDL_FRect dst{center.x-camera.x-96.f*s,
                        center.y-camera.y-152.f*s,192.f*s,192.f*s};
-    if(art.fountainAnimation){
-        float width=0.f,height=0.f;
-        if(SDL_GetTextureSize(art.fountainAnimation,&width,&height)){
-            constexpr int columns=4,rows=3,count=columns*rows;
-            const int frame=int(std::max(0.f,seconds)*10.f)%count;
-            const float cellW=width/float(columns),cellH=height/float(rows);
-            const SDL_FRect source{float(frame%columns)*cellW,
-                                   float(frame/columns)*cellH,cellW,cellH};
-            SDL_RenderTexture(renderer,art.fountainAnimation,&source,&dst);
-        }
-    }else if(art.fountainBase && art.fountainWater){
-        // Existing split assets remain as a stationary fallback.
+    if(art.fountainBase){
         SDL_RenderTexture(renderer,art.fountainBase,nullptr,&dst);
+        SDL_Texture* water=art.fountainAnimation?art.fountainAnimation:art.fountainWater;
         float width=0.f,height=0.f;
-        if(SDL_GetTextureSize(art.fountainWater,&width,&height)){
-            const SDL_FRect source{width/4.f,height/3.f,width/4.f,height/3.f};
-            SDL_RenderTexture(renderer,art.fountainWater,&source,&dst);
+        if(water && SDL_GetTextureSize(water,&width,&height)){
+            constexpr int columns=4,rows=3,count=12;
+            const int frame=int(std::max(0.f,seconds)*8.f)%count;
+            const float cellW=width/columns,cellH=height/rows;
+            // Keep the upper basin and the three falling streams but exclude
+            // the oversized water-pool art below the stone rim.
+            constexpr float x0=32.f/362.f,x1=330.f/362.f;
+            constexpr float yEnd=244.f/362.f;
+            const SDL_FRect src{
+                float(frame%columns)*cellW+x0*cellW,
+                float(frame/columns)*cellH,
+                (x1-x0)*cellW,yEnd*cellH
+            };
+            const SDL_FRect overlay{
+                dst.x+dst.w*x0,dst.y,
+                dst.w*(x1-x0),dst.h*yEnd
+            };
+            SDL_RenderTexture(renderer,water,&src,&overlay);
+            // Fixed stone wall in front of the pool, drawn last. This prevents
+            // the water art from covering the stone and spilling beyond the basin.
+            const SDL_FRect rimSrc{0.f,220.f,362.f,142.f};
+            const SDL_FRect rimDst{dst.x,dst.y+dst.h*(220.f/362.f),
+                                   dst.w,dst.h*(142.f/362.f)};
+            SDL_RenderTexture(renderer,art.fountainBase,&rimSrc,&rimDst);
         }
+    }else if(art.fountainAnimation){
+        // Base not installed yet: avoid showing an oversized all-blue fountain.
+        // Use the legacy static basin until the matching base PNG is present.
+        if(art.fountainFrames[0])
+            SDL_RenderTexture(renderer,art.fountainFrames[0],nullptr,&dst);
     }else if(art.fountainFrames[0]){
         SDL_RenderTexture(renderer,art.fountainFrames[0],nullptr,&dst);
     }
@@ -622,17 +642,17 @@ ArtAssets loadArtAssets(SDL_Renderer* renderer){
     loadFamilyFrames(renderer,result);
     loadHeroFrames(renderer,result);
     loadVillageProps(renderer,result);
+    result.fountainBase=loadArt(renderer,"fountain_base.png");
     result.fountainAnimation=loadNewFountainAnimation(renderer);
     if(!result.fountainAnimation)
-        result.fountainBase=loadArt(renderer,"fountain_base.png");
-    if(!result.fountainAnimation)
         result.fountainWater=loadArt(renderer,"fountain_water_12frames.png");
-    if(!result.fountainAnimation && (!result.fountainBase || !result.fountainWater)){
-        if(result.fountainBase){SDL_DestroyTexture(result.fountainBase);result.fountainBase=nullptr;}
-        if(result.fountainWater){SDL_DestroyTexture(result.fountainWater);result.fountainWater=nullptr;}
-        loadFountainFrames(renderer,result); // only the first frame is displayed
-        std::cerr<<"New animation and split fountain sprites unavailable; using static spring.png.\n";
-    }
+    // A missing base must not turn the new water sheet into an all-blue fountain.
+    // The existing spring.png remains a last-resort fixed fallback.
+    if(!result.fountainBase)
+        loadFountainFrames(renderer,result);
+    std::cerr<<"Fountain renderer: "<<(result.fountainBase?"fixed stone base":"legacy base")
+             <<", water: "<<(result.fountainAnimation?"new 12-frame sheet":
+                              result.fountainWater?"split 12-frame sheet":"none")<<"\n";
     if(!result.home||!result.village||!result.outskirts)
         std::cerr<<"AI art missing: extract art pack so assets/*.bmp exists. Using fallback visuals.\n";
     return result;
