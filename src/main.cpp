@@ -839,7 +839,7 @@ void drawShopFurniture(SDL_Renderer* r,const ArtAssets& art,
                        float playerY,bool foreground){
     for(size_t i=0;i<shop::furniture.size();i++){
         const auto& p=shop::furniture[i];
-        if((p.footY>playerY)!=foreground)continue;
+        if((shop::sortY(i)>playerY)!=foreground)continue;
         SDL_Texture* t=art.shopFurniture[i];
         if(!t)continue;
         const SDL_FRect dst{p.x,p.y,p.w,p.h};
@@ -1989,6 +1989,32 @@ void drawQuickbar(SDL_Renderer* renderer,const World& w,const ArtAssets& art){
         fillText(renderer,std::to_string(i+1),int(x+18),int(y+40),1,240,207,147);
     }
 }
+// Both mouse hit testing and rendering share the same item row rectangles.
+int shopItemAt(float x,float y){
+    constexpr float left=204.f,right=730.f,top=192.f,stride=55.f;
+    if(x<left||x>=right||y<top)return -1;
+    const int row=int((y-top)/stride);
+    if(row<0||row>=int(SHOP_GOODS.size()))return -1;
+    return y<top+float(row)*stride+52.f?row:-1;
+}
+bool shopCloseAt(float x,float y){
+    return x>=715.f&&x<=765.f&&y>=119.f&&y<=165.f;
+}
+void purchaseShopSelection(World& world){
+    const PurchaseResult outcome=buyShopItem(world,world.shopSelection);
+    world.shopFeedback=outcome==PurchaseResult::BOUGHT?"PURCHASE COMPLETE":
+        outcome==PurchaseResult::NO_GOLD?"NOT ENOUGH GOLD":
+        outcome==PurchaseResult::BAG_FULL?"BACKPACK IS FULL":"CANNOT BUY ITEM";
+}
+void handleShopClick(World& world,float x,float y){
+    if(shopCloseAt(x,y)){world.shopMenu=false;return;}
+    const int selected=shopItemAt(x,y);
+    if(selected>=0){
+        world.shopSelection=selected;
+        purchaseShopSelection(world);
+    }
+}
+
 void drawShopMenu(SDL_Renderer* r,const World& w,const ArtAssets& art){
     SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(r,4,9,16,205);
@@ -1997,6 +2023,8 @@ void drawShopMenu(SDL_Renderer* r,const World& w,const ArtAssets& art){
     SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_NONE);
     uiBox(r,176.f,102.f,608.f,460.f);
     fillText(r,"GENERAL STORE",225,131,4,246,207,138);
+    uiBox(r,717.f,120.f,46.f,43.f);
+    fillText(r,"X",732,129,3,246,207,138);
     fillText(r,"GOLD: "+std::to_string(w.gold),565,143,2,244,211,143);
     for(int i=0;i<int(SHOP_GOODS.size());i++){
         const int id=SHOP_GOODS[size_t(i)];
@@ -2008,7 +2036,7 @@ void drawShopMenu(SDL_Renderer* r,const World& w,const ArtAssets& art){
         fillText(r,itemView(id).name,x+68,y+7,2,239,218,183);
         fillText(r,std::to_string(SHOP_PRICES[size_t(i)])+" G",x+425,y+7,2,243,198,107);
     }
-    fillText(r,w.shopFeedback.empty()?"UP/DOWN: SELECT   ENTER/E: BUY   ESC: CLOSE":w.shopFeedback,
+    fillText(r,w.shopFeedback.empty()?"MOUSE: CLICK TO BUY   X: CLOSE   UP/DOWN + E: BUY":w.shopFeedback,
              218,528,2,241,204,151);
 }
 
@@ -2093,10 +2121,19 @@ int main(int argc,char** argv){
         SDL_Event ev;
         while(SDL_PollEvent(&ev)){
             if(ev.type==SDL_EVENT_QUIT)running=false;
-            if(ev.type==SDL_EVENT_MOUSE_BUTTON_DOWN &&
-               ev.button.button==SDL_BUTTON_LEFT && world.inventoryOpen){
+            if(ev.type==SDL_EVENT_MOUSE_MOTION && world.shopMenu){
                 SDL_ConvertEventToRenderCoordinates(renderer,&ev);
-                clickInventory(world,ev.button.x,ev.button.y);
+                const int hovered=shopItemAt(ev.motion.x,ev.motion.y);
+                if(hovered>=0 && hovered!=world.shopSelection){
+                    world.shopSelection=hovered;
+                    world.shopFeedback.clear();
+                }
+            }
+            if(ev.type==SDL_EVENT_MOUSE_BUTTON_DOWN &&
+               ev.button.button==SDL_BUTTON_LEFT){
+                SDL_ConvertEventToRenderCoordinates(renderer,&ev);
+                if(world.shopMenu)handleShopClick(world,ev.button.x,ev.button.y);
+                else if(world.inventoryOpen)clickInventory(world,ev.button.x,ev.button.y);
             }
             if(ev.type==SDL_EVENT_KEY_DOWN && ev.key.repeat==0){
                 if(world.shopMenu){
@@ -2109,10 +2146,7 @@ int main(int argc,char** argv){
                         world.shopSelection=(world.shopSelection+1)%int(SHOP_GOODS.size());
                         world.shopFeedback.clear();
                     }else if(ev.key.key==SDLK_RETURN || ev.key.key==SDLK_E){
-                        const PurchaseResult outcome=buyShopItem(world,world.shopSelection);
-                        world.shopFeedback=outcome==PurchaseResult::BOUGHT?"PURCHASE COMPLETE":
-                            outcome==PurchaseResult::NO_GOLD?"NOT ENOUGH GOLD":
-                            outcome==PurchaseResult::BAG_FULL?"BACKPACK IS FULL":"CANNOT BUY ITEM";
+                        purchaseShopSelection(world);
                     }
                     continue;
                 }
@@ -2195,12 +2229,12 @@ int main(int argc,char** argv){
             drawVillagerSprite(renderer,art,2,keeper.p,{0.f,1.f},false,0.f,keeper);
             drawShopFurniture(renderer,art,world.hero.pos.y,false);
             if(world.showCollision){
-                for(const auto& prop:shop::furniture){
-                    if(!prop.solid)continue;
+                for(size_t i=0;i<shop::furniture.size();i++){
+                    if(!shop::furniture[i].solid)continue;
                     color(renderer,241,124,64,255);
-                    SDL_FRect footprint{prop.x+4.f,prop.y+prop.h*0.57f,
-                                         prop.w-8.f,prop.h*(1.f-0.57f)-4.f};
-                    SDL_RenderRect(renderer,&footprint);
+                    const auto b=shop::footprint(i);
+                    SDL_FRect boundary{b.x,b.y,b.w,b.h};
+                    SDL_RenderRect(renderer,&boundary);
                 }
             }
         }else if(world.scene==Scene::VILLAGE){
