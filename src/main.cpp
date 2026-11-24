@@ -687,6 +687,118 @@ void drawFamilySprite(SDL_Renderer* r,const ArtAssets& art,int person,
     SDL_FRect destination{float(x-21),float(y-56),42.f,67.f};
     SDL_RenderTexture(r,texture,nullptr,&destination);
 }
+// villager.png top panel: eight character columns, four walking directions,
+// four poses per direction. Ignore labelled portrait/icon panels below y=410.
+// Each crop is converted to RGBA and only its edge-connected dark matte is removed.
+void loadVillagerFrames(SDL_Renderer* renderer,ArtAssets& art){
+#if RPG_HAS_SDL3_IMAGE
+    namespace fs=std::filesystem;
+    fs::path file;
+    for(const auto& candidate:{fs::path("assets/villager.png"),
+                               fs::path("../assets/villager.png"),
+                               fs::path("../../assets/villager.png")}){
+        if(fs::exists(candidate)){file=candidate;break;}
+    }
+    if(file.empty()){std::cerr<<"villager.png missing; using simple NPCs\n";return;}
+    SDL_Surface* sheet=IMG_Load(file.string().c_str());
+    if(!sheet){std::cerr<<"Cannot load villager.png: "<<SDL_GetError()<<"\n";return;}
+    constexpr std::array<int,8> startX{{122,324,508,701,880,1060,1243,1431}};
+    constexpr std::array<int,8> spacing{{45,42,42,39,39,39,38,32}};
+    constexpr std::array<int,4> topY{{79,160,242,321}};
+    const float sx=float(sheet->w)/1536.f,sy=float(sheet->h)/1024.f;
+    int loaded=0;
+    for(int who=0;who<8;who++)for(int direction=0;direction<4;direction++)
+    for(int pose=0;pose<4;pose++){
+        const int cx=startX[size_t(who)]+spacing[size_t(who)]*pose;
+        const int left=int((cx-18)*sx),top=int(topY[size_t(direction)]*sy);
+        const int w=std::max(1,int(36*sx)),h=std::max(1,int(69*sy));
+        if(left<0||top<0||left+w>sheet->w||top+h>sheet->h)continue;
+        SDL_Surface* crop=SDL_CreateSurface(w,h,SDL_PIXELFORMAT_RGBA32);
+        if(!crop)continue;
+        const SDL_Rect region{left,top,w,h};
+        if(SDL_BlitSurface(sheet,&region,crop,nullptr)){
+            std::vector<Uint8> visited(size_t(w)*size_t(h),0);
+            std::vector<int> q;
+            q.reserve(visited.size());
+            auto background=[&](int x,int y){
+                Uint8 red=0,green=0,blue=0,alpha=255;
+                if(!SDL_ReadSurfacePixel(crop,x,y,&red,&green,&blue,&alpha))return false;
+                return alpha<16 || (red<58 && green<58 && blue<66 &&
+                    std::abs(int(red)-int(green))<18 &&
+                    std::abs(int(green)-int(blue))<19);
+            };
+            auto add=[&](int x,int y){
+                if(x<0||y<0||x>=w||y>=h)return;
+                const size_t idx=size_t(y)*size_t(w)+size_t(x);
+                if(visited[idx]||!background(x,y))return;
+                visited[idx]=1;q.push_back(int(idx));
+            };
+            for(int x=0;x<w;x++){add(x,0);add(x,h-1);}
+            for(int y=0;y<h;y++){add(0,y);add(w-1,y);}
+            for(size_t qi=0;qi<q.size();qi++){
+                const int index=q[qi],x=index%w,y=index/w;
+                SDL_WriteSurfacePixel(crop,x,y,0,0,0,0);
+                add(x-1,y);add(x+1,y);add(x,y-1);add(x,y+1);
+            }
+            SDL_Texture* texture=SDL_CreateTextureFromSurface(renderer,crop);
+            if(texture){
+                SDL_SetTextureBlendMode(texture,SDL_BLENDMODE_BLEND);
+                SDL_SetTextureScaleMode(texture,SDL_SCALEMODE_NEAREST);
+                art.villagerFrames[size_t((who*4+direction)*4+pose)]=texture;
+                loaded++;
+            }
+        }
+        SDL_DestroySurface(crop);
+    }
+    SDL_DestroySurface(sheet);
+    std::cerr<<"Loaded villager.png walking poses: "<<loaded<<"/128\n";
+#else
+    (void)renderer;(void)art;
+#endif
+}
+void drawVillagerSprite(SDL_Renderer* renderer,const ArtAssets& art,
+                        int who,Vec2 feet,Vec2 facing,bool moving,float clock,
+                        const Character& fallback){
+    const int direction=std::abs(facing.x)>std::abs(facing.y)?
+        (facing.x<0.f?1:2):(facing.y<0.f?3:0);
+    const int pose=moving?int(clock*7.f)%4:0;
+    const int idx=(who*4+direction)*4+pose;
+    SDL_Texture* texture=art.villagerFrames[size_t(idx)];
+    if(!texture)texture=art.villagerFrames[size_t((who*4+direction)*4)];
+    if(texture){
+        SDL_FRect destination{feet.x-20.f,feet.y-61.f,40.f,66.f};
+        SDL_RenderTexture(renderer,texture,nullptr,&destination);
+    }else{
+        Character npc=fallback;
+        npc.p=feet;
+        drawPerson(renderer,npc);
+    }
+}
+// Story NPCs retain fixed plot coordinates and interactions; additional NPCs
+// stroll near their respective homes. Draw in two passes around the hero.
+void drawVillagePopulation(SDL_Renderer* renderer,const ArtAssets& art,
+                           const World& world,Vec2 camera,bool foreground){
+    const int questType[3]={0,2,6}; // Elder / Merchant / Guard
+    for(int i=0;i<3;i++){
+        const Vec2 location=npcPosition(world,i);
+        if((location.y>world.hero.pos.y)!=foreground)continue;
+        Character npc=VILLAGERS[size_t(i)];
+        npc.p={location.x-camera.x,location.y-camera.y};
+        drawVillagerSprite(renderer,art,questType[i],npc.p,{0.f,1.f},false,
+                           world.time,npc);
+    }
+    constexpr std::array<int,VILLAGER_COUNT> types{{1,3,4,5,6,7,1,3}};
+    for(int i=0;i<VILLAGER_COUNT;i++){
+        const VillagerMotion& motion=world.villagers[size_t(i)];
+        if((motion.position.y>world.hero.pos.y)!=foreground)continue;
+        const Vec2 screen{motion.position.x-camera.x,motion.position.y-camera.y};
+        if(screen.x<-80.f||screen.y<-95.f||screen.x>WIDTH+80.f||screen.y>HEIGHT+75.f)continue;
+        Character fallback{{0,0},"VILLAGER",106,132,85,false,false};
+        drawVillagerSprite(renderer,art,types[size_t(i)],screen,motion.facing,
+                           motion.moving,motion.walkingTime,fallback);
+    }
+}
+
 ArtAssets loadArtAssets(SDL_Renderer* renderer){
     ArtAssets result;
 #if RPG_HAS_SDL3_IMAGE
@@ -706,6 +818,7 @@ ArtAssets loadArtAssets(SDL_Renderer* renderer){
     loadFamilyFrames(renderer,result);
     loadHeroFrames(renderer,result);
     loadVillageProps(renderer,result);
+    loadVillagerFrames(renderer,result);
     result.fountainBase=loadArt(renderer,"fountain_base.png");
     result.fountainAnimation=loadNewFountainAnimation(renderer);
     if(!result.fountainAnimation)
@@ -740,6 +853,7 @@ void destroyArtAssets(ArtAssets& art){
     if(art.fountainBase)SDL_DestroyTexture(art.fountainBase);
     if(art.fountainWater)SDL_DestroyTexture(art.fountainWater);
     if(art.fountainAnimation)SDL_DestroyTexture(art.fountainAnimation);
+    for(SDL_Texture* t:art.villagerFrames)if(t)SDL_DestroyTexture(t);
 }
 void color(SDL_Renderer* r,Uint8 red,Uint8 green,Uint8 blue,Uint8 alpha=255){
     SDL_SetRenderDrawColor(r,red,green,blue,alpha);
@@ -1612,12 +1726,7 @@ int main(int argc,char** argv){
                 SDL_RenderTexture(renderer,art.village,nullptr,&bg);
                 drawVillageProps(renderer,art,camera,world.hero.pos.y,false);
                 drawAnimatedFountain(renderer,art,camera,world.hero.pos.y,world.time,false);
-                for(int i=0;i<3;i++){
-                    Character c=VILLAGERS[size_t(i)];
-                    c.p=npcPosition(world,i);
-                    c.p.x-=camera.x;c.p.y-=camera.y;
-                    drawPerson(renderer,c);
-                }
+                drawVillagePopulation(renderer,art,world,camera,false);
                 if(world.showCollision){
                     SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_BLEND);
                     for(const auto& poly:village::obstacles()){
@@ -1682,6 +1791,7 @@ int main(int argc,char** argv){
             const Vec2 camera=village::camera(world.hero.pos);
             drawVillageProps(renderer,art,camera,world.hero.pos.y,true);
             drawAnimatedFountain(renderer,art,camera,world.hero.pos.y,world.time,true);
+            drawVillagePopulation(renderer,art,world,camera,true);
         }
         if(world.story<9){
             storyPanel(renderer,world);
