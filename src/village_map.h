@@ -14,14 +14,9 @@ constexpr float IMAGE_W=1536.f, IMAGE_H=1024.f;
 constexpr float WORLD_W=IMAGE_W*SCALE, WORLD_H=IMAGE_H*SCALE;
 inline game::Vec2 pos(float imageX,float imageY){return {imageX*SCALE,imageY*SCALE};}
 inline game::Vec2 fountainCenter(){return pos(750.f,515.f);} // moved down 40 image pixels
-// Maintain a fully flowing jet: water sheet frames 0-2 are start-up,
-// 6-11 are shutdown/retraction. Loop only strong spray frames 3-5,
-// reversing the sequence to avoid a hard jump at the loop boundary.
-inline int fountainWaterFrame(float seconds){
-    constexpr std::array<int,4> sustained{{3,4,5,4}};
-    const int tick=std::max(0,int(seconds*6.f));
-    return sustained[size_t(tick)%sustained.size()];
-}
+// Keep the strongest continuous flow frame visible. Animation is supplied
+// by downward-moving water droplets instead of scaling/retracting the jet.
+inline int fountainWaterFrame(float /*seconds*/){return 4;}
 
 // Collision only: extend the basin 12 image pixels upward while leaving
 // its bottom edge unchanged. Visual placement stays at fountainCenter().
