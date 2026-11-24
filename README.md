@@ -1,3 +1,32 @@
+## Source code layout
+
+The SDL3 game is no longer implemented in a 2,400-line `src/main.cpp`.
+The entry point now handles the **event loop, scene rendering and SDL lifetime**,
+while related implementation is grouped in `src/modules/`:
+
+| Source | Responsibility |
+| --- | --- |
+| `world_state.inc` | Game state, scene/NPC state, asset structures |
+| `asset_pipeline.inc` | PNG loading, sprite cropping, transparent textures |
+| `world_renderer.inc` | Shared drawing primitives, terrain/map rendering |
+| `gameplay.inc` | Core movement, combat, progression updates |
+| `characters_scenes.inc` | Character, scene and NPC rendering |
+| `hud_dialogue.inc` | HUD, quest notices, fonts, dialogue |
+| `scene_transitions.inc` | Scene transitions, quests and interaction |
+| `game_over.inc` | Victory and defeat overlay |
+| `inventory_shop_ui.inc` | Inventory, equipment, purchase UI and mouse input |
+
+These files are **implementation fragments included in order** inside the
+original anonymous namespace. They are listed as header-only sources in
+`CMakeLists.txt` for IDE navigation; they are **not** separately compiled
+translation units. This is an incremental, behavior-preserving reorganization,
+not a full public-header / multiple-`.cpp` architecture yet. Keep new
+inter-module dependencies in the include order, or introduce declarations
+before using helpers from a later module.
+
+Existing headers `game_logic.h`, `village_map.h` and `shop_map.h` continue
+to host reusable geometry and collision logic tested by `tests/game_tests.cpp`.
+
 ## Seamless doors and right-side bridge access
 
 - The upper-right bridge and lower mill bridge now allow uninterrupted
