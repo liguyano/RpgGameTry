@@ -44,7 +44,17 @@ int main() {
     assert(!village::blocked(village::pos(850,360))); // upper crown is passable
     assert(village::blocked(village::pos(400,260))); // house's lower half is solid
     assert(!village::blocked(village::pos(400,190))); // upper roof remains passable
-    assert(!village::blocked(village::pos(1250,375))); // bridge
+    assert(!village::blocked(village::pos(1250,375))); // upper bridge center
+    // Continuous footpath across the east bridge, including both landings.
+    for(int x=1175;x<=1375;x+=10)
+        assert(!village::blocked(village::pos(float(x),375.f),8.f));
+    auto crossing=village::pos(1175.f,375.f);
+    village::move(crossing,{220.f*village::SCALE,0.f},1.f,8.f);
+    assert(crossing.x>village::pos(1360.f,375.f).x);
+    // The lower east/mill bridge must also have a usable corridor.
+    for(int x=1200;x<=1375;x+=10)
+        assert(!village::blocked(village::pos(float(x),750.f),8.f));
+
     assert(!village::blocked(village::pos(700,565))); // village street
     assert(!village::blocked(village::pos(545,755))); // spawn
     assert(!village::blocked(village::pos(774,565))); // elder interaction
