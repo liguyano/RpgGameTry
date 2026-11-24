@@ -50,6 +50,31 @@ endif()
 find_package(SDL3_ttf CONFIG QUIET)
 
 add_executable(medieval_rpg src/main.cpp)
+# Implementation fragments are included (not independently compiled) by main.cpp.
+# List them for IDE navigation without adding duplicate object definitions.
+target_sources(medieval_rpg PRIVATE
+    src/modules/world_state.inc
+    src/modules/asset_pipeline.inc
+    src/modules/world_renderer.inc
+    src/modules/gameplay.inc
+    src/modules/characters_scenes.inc
+    src/modules/hud_dialogue.inc
+    src/modules/scene_transitions.inc
+    src/modules/game_over.inc
+    src/modules/inventory_shop_ui.inc
+)
+set_source_files_properties(
+    src/modules/world_state.inc
+    src/modules/asset_pipeline.inc
+    src/modules/world_renderer.inc
+    src/modules/gameplay.inc
+    src/modules/characters_scenes.inc
+    src/modules/hud_dialogue.inc
+    src/modules/scene_transitions.inc
+    src/modules/game_over.inc
+    src/modules/inventory_shop_ui.inc
+    PROPERTIES HEADER_FILE_ONLY TRUE
+)
 target_include_directories(medieval_rpg PRIVATE src)
 target_link_libraries(medieval_rpg PRIVATE SDL3::SDL3)
 if(TARGET SDL3_image::SDL3_image)
