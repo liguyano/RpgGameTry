@@ -32,6 +32,15 @@ ctest --test-dir build --output-on-failure
 
 CMake automatically detects both SDL3 and SDL3_image at the above local SDK paths, and copies their DLLs and the `assets/` directory into `build/`. The `SDL3_image-3.4.8/` SDK is local only and must not be committed. Without SDL3_image the game still builds and uses BMP/procedural artwork.
 
+## Village object layers and moving family NPCs
+
+- `assets/village.png` supplies the **ground and roads** without houses or trees.
+- `assets/houseAndTree.png` supplies **separate building and tree sprites**. The renderer extracts individual regions and draws objects either before or after the player based on the object's foot position, so that buildings/tree crowns can obscure the hero from behind.
+- Sprite rectangles and world placements are **initial approximate values** in `VILLAGE_PROPS` inside `src/main.cpp`. Generated source sheets are not pixel-perfect production atlases; some background-edge artifacts and scene placement mismatches may remain.
+- At home, **Mother, Father and Lily wander short scripted paths**, pause between destinations, face the walking direction, and play the matching walk animation. They stop moving when a dialogue box is open, and E interactions follow their latest location.
+
+No new library is required beyond the existing SDL3 and SDL3_image SDKs.
+
 ## Animated hero (hero.png)
 
 The game now loads `assets/hero.png` through SDL3_image and extracts **16 walking frames** (four frames for each of down, left, right and up). WASD picks the facing row and advances the animation; standing still displays the initial pose. The hero sprites are drawn in the home, scrolling village and outskirts. The image is a labeled concept sheet rather than a transparent production atlas, so each frame's connected dark background is automatically removed on load and some edge artifacts may remain. If the PNG is unavailable, the original program-drawn hero is used.
