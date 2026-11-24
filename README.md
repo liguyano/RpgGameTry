@@ -72,6 +72,22 @@ No new library is required beyond the existing SDL3 and SDL3_image SDKs.
 
 The game now loads `assets/hero.png` through SDL3_image and extracts **16 walking frames** (four frames for each of down, left, right and up). WASD picks the facing row and advances the animation; standing still displays the initial pose. The hero sprites are drawn in the home, scrolling village and outskirts. The image is a labeled concept sheet rather than a transparent production atlas, so each frame's connected dark background is automatically removed on load and some edge artifacts may remain. If the PNG is unavailable, the original program-drawn hero is used.
 
+## Split fountain sprites (stable basin + moving water)
+
+To eliminate the shaking caused by slightly different stone basins on every
+frame of `spring.png`, the game now prefers **two separate transparent PNGs**:
+
+- `assets/fountain_base.png`: a stationary 362×362 RGBA basin.
+- `assets/fountain_water_12frames.png`: RGBA water animation, 1448×1086,
+  laid out in 4 columns and 3 rows of 362×362 pixels.
+
+Both layers share exactly the same destination rectangle and anchor, and only
+the **water source rectangle** changes at 9 frames per second. Keep both files
+in `assets/` and run `git add assets/fountain_base.png
+assets/fountain_water_12frames.png` followed by a commit and push.
+If either file is absent, the old `spring.png` is displayed as a **single,
+stationary frame**, rather than shaking.
+
 ## Animated fountain in the village
 
 The uploaded `assets/spring.png` is loaded as a **4-column × 3-row, 12-frame** fountain animation (about **9 FPS**) with SDL3_image. Its water jet, splash and basin are rendered at the village plaza with camera offset, and the entire fountain switches to foreground when the hero walks behind it. The pool uses a small **circular collision**, rather than a large legacy rectangle. Press **F3** to see the golden fountain collision outline. The original generated sheet has a dark matte; the loader removes only near-black pixels connected to each frame's outer edge. If the image is missing, the water sprite simply is not rendered.
