@@ -59,6 +59,31 @@ Press **E or Space** once to show the full line, and again to continue.
 The renderer caches dialogue textures rather than recreating the same text
 every game frame.
 
+## RPG inventory UI (ui.png + items.png)
+
+The playable backpack reads `assets/ui.png` (stone-and-gold UI panels) and
+`assets/items.png` (item icon atlas), with procedural slot frames as a
+fallback. It starts with a sample set of weapons, armor, consumables and gold
+for testing. These demo items are not yet connected to the game world's loot
+or merchant economy.
+
+- **B / I**: open or close backpack. **Esc** closes it.
+- **Arrow keys**: select one of 24 backpack slots.
+- **E / Enter**: equip the selected weapon or armor, or use a consumable
+  (health recovery only if HP is not full).
+- **Mouse left-click**: select a backpack item, or click an equipped item
+  to move it into the first empty bag slot.
+- **1–8**: with the backpack open, bind the selected item to that hotbar key;
+  outside the backpack, select the hotbar key and use a matching consumable.
+- A quickbar remains visible in normal gameplay, except during dialogue.
+  Movement is paused while the inventory is open.
+
+Equipment slots: weapon, shield, helmet, armor, boots and accessory/other.
+Clicking a backpack slot selects it; E transfers equipment into its slot and
+swaps an existing equipped item back into the backpack. The original item
+textures are cropped from the generated concept sheet, so some margins may
+need adjustment after an in-game visual check.
+
 ## Animated village citizens (`villager.png`)
 
 The uploaded `assets/villager.png` now supplies eight character styles, with
