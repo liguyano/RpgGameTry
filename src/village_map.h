@@ -13,6 +13,14 @@ constexpr float SCALE=1.5f;
 constexpr float IMAGE_W=1536.f, IMAGE_H=1024.f;
 constexpr float WORLD_W=IMAGE_W*SCALE, WORLD_H=IMAGE_H*SCALE;
 inline game::Vec2 pos(float imageX,float imageY){return {imageX*SCALE,imageY*SCALE};}
+inline game::Vec2 fountainCenter(){return pos(750.f,475.f);}
+constexpr float FOUNTAIN_RADIUS=43.f*SCALE;
+inline bool fountainBlocked(game::Vec2 world,float radius=0.f){
+    const game::Vec2 c=fountainCenter();
+    const float dx=world.x-c.x,dy=world.y-c.y;
+    const float limit=FOUNTAIN_RADIUS+radius;
+    return dx*dx+dy*dy<=limit*limit;
+}
 struct Rect { float x,y,w,h; };
 inline bool inRect(game::Vec2 p,Rect r,float radius){
     float nearestX=game::clamp(p.x,r.x,r.x+r.w);
@@ -118,6 +126,7 @@ inline bool blocked(game::Vec2 world,float radius=11.f){
        world.x>WORLD_W-radius || world.y>WORLD_H-radius)return true;
     for(const auto& obstacle:obstacles())
         if(inPolygon(world,obstacle,radius))return true;
+    if(fountainBlocked(world,radius))return true;
     for(const auto& terrainZone:terrain()){
         bool crossing=false;
         for(auto bridge:bridgePassages())if(inRect(world,bridge,0.f)){crossing=true;break;}
