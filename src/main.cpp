@@ -1863,8 +1863,38 @@ int main(int argc,char** argv){
         SDL_Event ev;
         while(SDL_PollEvent(&ev)){
             if(ev.type==SDL_EVENT_QUIT)running=false;
+            if(ev.type==SDL_EVENT_MOUSE_BUTTON_DOWN &&
+               ev.button.button==SDL_BUTTON_LEFT && world.inventoryOpen){
+                SDL_ConvertEventToRenderCoordinates(renderer,&ev);
+                clickInventory(world,ev.button.x,ev.button.y);
+            }
             if(ev.type==SDL_EVENT_KEY_DOWN && ev.key.repeat==0){
-                if(ev.key.key==SDLK_ESCAPE)running=false;
+                if(ev.key.key==SDLK_I || ev.key.key==SDLK_B){
+                    world.inventoryOpen=!world.inventoryOpen;
+                    continue;
+                }
+                if(ev.key.key==SDLK_ESCAPE){
+                    if(world.inventoryOpen){world.inventoryOpen=false;continue;}
+                    running=false;
+                }
+                if(world.inventoryOpen){
+                    if(ev.key.key==SDLK_LEFT)
+                        world.inventorySelection=(world.inventorySelection+23)%24;
+                    else if(ev.key.key==SDLK_RIGHT)
+                        world.inventorySelection=(world.inventorySelection+1)%24;
+                    else if(ev.key.key==SDLK_UP)
+                        world.inventorySelection=(world.inventorySelection+16)%24;
+                    else if(ev.key.key==SDLK_DOWN)
+                        world.inventorySelection=(world.inventorySelection+8)%24;
+                    else if(ev.key.key==SDLK_E || ev.key.key==SDLK_RETURN)
+                        useInventoryItem(world,world.inventorySelection);
+                    else if(ev.key.key>=SDLK_1 && ev.key.key<=SDLK_8)
+                        world.quickSlots[size_t(ev.key.key-SDLK_1)]=
+                            world.bag[size_t(world.inventorySelection)];
+                    continue;
+                }
+                if(ev.key.key>=SDLK_1 && ev.key.key<=SDLK_8)
+                    useQuickSlot(world,int(ev.key.key-SDLK_1));
                 if(ev.key.key==SDLK_R){
                     reset(world);world.largeVillage=art.expandedVillage;
                 }
@@ -1882,7 +1912,7 @@ int main(int argc,char** argv){
         float dt=static_cast<float>(now-last)/static_cast<float>(SDL_GetPerformanceFrequency());
         last=now;
         dt=clamp(dt,0.f,0.035f);
-        update(world,SDL_GetKeyboardState(nullptr),dt);
+        if(!world.inventoryOpen)update(world,SDL_GetKeyboardState(nullptr),dt);
         if(world.scene==Scene::HOME){
             if(art.home)drawBackground(renderer,art.home);
             else drawCottage(renderer,world.time);
@@ -1982,6 +2012,8 @@ int main(int argc,char** argv){
         }else drawHud(renderer,world);
         drawOverlay(renderer,world);
         drawDialogue(renderer,world,art,fonts);
+        if(world.inventoryOpen)drawInventory(renderer,world,art);
+        else if(world.dialogue.empty())drawQuickbar(renderer,world,art);
         SDL_RenderPresent(renderer);
         if(!(SDL_GetWindowFlags(window)&SDL_WINDOW_INPUT_FOCUS))SDL_Delay(16);
     }
