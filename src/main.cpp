@@ -38,6 +38,54 @@ struct Player {
 };
 enum class Scene { HOME, VILLAGE, OUTSKIRTS };
 
+// Each relative follows a small safe route within the cottage, with pauses and
+// direction changes. The location is authoritative for rendering and E interaction.
+struct FamilyMotion {
+    Vec2 position{};
+    Vec2 facing{0.f,1.f};
+    int nextWaypoint=0;
+    float wait=0.f;
+    float walkingTime=0.f;
+    bool moving=false;
+};
+constexpr std::array<std::array<Vec2,3>,3> FAMILY_ROUTES{{
+    {{{300,260},{310,290},{255,282}}},  // Mother: between hearth and kitchen
+    {{{615,270},{655,299},{610,320}}},  // Father: bookshelf / work area
+    {{{460,405},{508,455},{408,470}}}   // Lily: plays around the south rug
+}};
+inline FamilyMotion initialFamily(int i){
+    FamilyMotion f;
+    f.position=FAMILY_ROUTES[size_t(i)][0];
+    f.nextWaypoint=1;
+    f.wait=0.8f+float(i)*0.7f;
+    return f;
+}
+void updateFamilyMotion(std::array<FamilyMotion,3>& family,Vec2 hero,float dt){
+    for(int i=0;i<3;i++){
+        auto& npc=family[size_t(i)];
+        npc.moving=false;
+        if(npc.wait>0.f){npc.wait=std::max(0.f,npc.wait-dt);continue;}
+        const Vec2 target=FAMILY_ROUTES[size_t(i)][size_t(npc.nextWaypoint)];
+        const Vec2 delta{target.x-npc.position.x,target.y-npc.position.y};
+        const float distance=std::sqrt(delta.x*delta.x+delta.y*delta.y);
+        if(distance<2.5f){
+            npc.position=target;
+            npc.nextWaypoint=(npc.nextWaypoint+1)%3;
+            npc.wait=1.3f+float((i+npc.nextWaypoint)%3)*0.7f;
+            continue;
+        }
+        const Vec2 direction=normalized(delta);
+        npc.facing=direction;
+        // Never crowd the player, and do not slide into their feet.
+        Vec2 step{npc.position.x+direction.x*52.f*dt,
+                  npc.position.y+direction.y*52.f*dt};
+        if(withinRange(step,hero,29.f)){npc.wait=0.5f;continue;}
+        npc.position=step;
+        npc.moving=true;
+        npc.walkingTime+=dt;
+    }
+}
+
 struct World {
     Scene scene=Scene::HOME;
     int story=0;
@@ -47,6 +95,7 @@ struct World {
     bool largeVillage=false;
     bool showCollision=false;
     Player hero;
+    std::array<FamilyMotion,3> family{initialFamily(0),initialFamily(1),initialFamily(2)};
     std::vector<Enemy> enemies;
     bool won=false, lost=false;
     float time=0;
@@ -562,6 +611,7 @@ void update(World& w,const bool* keys,float dt){
     if(w.won||w.lost) return;
     w.time+=dt;
     if(!w.dialogue.empty())return;
+    if(w.scene==Scene::HOME)updateFamilyMotion(w.family,w.hero.pos,dt);
     w.hero.slashTimer=std::max(0.f,w.hero.slashTimer-dt);
     w.hero.moving=false;
     w.hero.hurtTimer=std::max(0.f,w.hero.hurtTimer-dt);
@@ -850,13 +900,13 @@ void beginBattle(World& w){
 }
 void interact(World& w){
     if(!w.dialogue.empty()){w.dialogue.clear();return;}
-    if(w.story==0 && withinRange(w.hero.pos,FAMILY[0].p,72)){
+    if(w.story==0 && withinRange(w.hero.pos,w.family[0].position,72)){
         w.story=1;showDialogue(w,"MOTHER","GOOD MORNING, ELIAN!\nYOUR FATHER HAS SOMETHING TO SAY.");return;
     }
-    if(w.story==1 && withinRange(w.hero.pos,FAMILY[1].p,72)){
+    if(w.story==1 && withinRange(w.hero.pos,w.family[1].position,72)){
         w.story=2;showDialogue(w,"FATHER","TAKE THIS OLD SWORD WHEN YOU GO.\nBUT SEE LILY BEFORE LEAVING.");return;
     }
-    if(w.story==2 && withinRange(w.hero.pos,FAMILY[2].p,72)){
+    if(w.story==2 && withinRange(w.hero.pos,w.family[2].position,72)){
         w.story=3;showDialogue(w,"LILY","COME HOME BEFORE SUNSET!\nI MADE YOU A LUCKY CHARM.");return;
     }
     if(w.story==3 && w.hero.pos.y>HEIGHT-130 && w.hero.pos.x>395 && w.hero.pos.x<570){
@@ -878,8 +928,8 @@ void interact(World& w){
         beginBattle(w);return;
     }
     if(w.scene==Scene::HOME) {
-        for(auto& c:FAMILY)if(withinRange(w.hero.pos,c.p,72)){
-            showDialogue(w,c.name,"BE SAFE OUT THERE, ELIAN.");return;
+        for(int i=0;i<3;i++)if(withinRange(w.hero.pos,w.family[size_t(i)].position,72)){
+            showDialogue(w,FAMILY[size_t(i)].name,"BE SAFE OUT THERE, ELIAN.");return;
         }
     }
     if(w.scene==Scene::VILLAGE){
@@ -892,9 +942,9 @@ void drawInteractPrompt(SDL_Renderer* r,const World& w){
     if(!w.dialogue.empty() || w.story>=9)return;
     Vec2 target{};
     switch(w.story){
-        case 0:target=FAMILY[0].p;break;
-        case 1:target=FAMILY[1].p;break;
-        case 2:target=FAMILY[2].p;break;
+        case 0:target=w.family[0].position;break;
+        case 1:target=w.family[1].position;break;
+        case 2:target=w.family[2].position;break;
         case 3:target={477,float(HEIGHT-89)};break;
         case 4:target=npcPosition(w,0);break;
         case 5:target=npcPosition(w,1);break;
@@ -967,14 +1017,19 @@ int main(int argc,char** argv){
         if(world.scene==Scene::HOME){
             if(art.home)drawBackground(renderer,art.home);
             else drawCottage(renderer,world.time);
+            // Draw the three moving relatives in their current world positions.
             for(int i=0;i<int(FAMILY.size());++i){
-                const auto& c=FAMILY[size_t(i)];
+                Character c=FAMILY[size_t(i)];
+                const FamilyMotion& motion=world.family[size_t(i)];
+                c.p=motion.position;
                 // FAMILY order: mother, father, Lily; atlas order: father, mother, Lily.
                 const int sheetPerson=i==0?1:(i==1?0:2);
                 const bool talking=world.speaker==c.name && !world.dialogue.empty();
-                const int frame=talking?int(world.time*3)%3:1;
-                if(art.familyFrames[(sheetPerson*4)*3+frame])
-                    drawFamilySprite(renderer,art,sheetPerson,int(c.p.x),int(c.p.y),0,frame);
+                const int facing=facingSpriteDirection(motion.facing);
+                const int frame=motion.moving?int(motion.walkingTime*6.f)%3:
+                    (talking?int(world.time*3.f)%3:1);
+                if(art.familyFrames[(sheetPerson*4+facing)*3+frame])
+                    drawFamilySprite(renderer,art,sheetPerson,int(c.p.x),int(c.p.y),facing,frame);
                 else drawPerson(renderer,c);
             }
         }else if(world.scene==Scene::VILLAGE){
