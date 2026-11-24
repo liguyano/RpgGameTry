@@ -122,7 +122,9 @@ struct ArtAssets {
     std::array<SDL_Texture*,54> familyFrames{};
     std::array<SDL_Texture*,16> heroFrames{};
     std::array<SDL_Texture*,12> villageProps{};
-    std::array<SDL_Texture*,12> fountainFrames{};
+    std::array<SDL_Texture*,12> fountainFrames{}; // legacy spring.png fallback (first frame only)
+    SDL_Texture* fountainBase=nullptr;
+    SDL_Texture* fountainWater=nullptr;
 };
 SDL_Texture* loadArt(SDL_Renderer* renderer,const char* filename){
     namespace fs=std::filesystem;
@@ -335,19 +337,32 @@ void loadFountainFrames(SDL_Renderer* renderer,ArtAssets& art){
     (void)renderer;(void)art;
 #endif
 }
+// Render the fixed stone basin and the water sheet in the SAME rectangle.
+// Both exported sprites use a 362x362 cell and a common anchor; never animate
+// the base. A single source-rect changes for the water (4 columns x 3 rows).
 void drawAnimatedFountain(SDL_Renderer* renderer,const ArtAssets& art,
                           Vec2 camera,float heroY,float seconds,bool foreground){
     const float fountainY=village::fountainCenter().y;
     if((fountainY>heroY)!=foreground)return;
-    const int index=int(seconds*9.f)%12; // twelve frames, nine FPS
-    SDL_Texture* texture=art.fountainFrames[size_t(index)];
-    if(!texture)texture=art.fountainFrames[0];
-    if(!texture)return;
     const Vec2 center=village::fountainCenter();
     const float s=village::SCALE;
-    SDL_FRect destination{center.x-camera.x-96.f*s,
-                          center.y-camera.y-160.f*s,192.f*s,200.f*s};
-    SDL_RenderTexture(renderer,texture,nullptr,&destination);
+    const SDL_FRect dst{center.x-camera.x-96.f*s,
+                       center.y-camera.y-152.f*s,192.f*s,192.f*s};
+    if(art.fountainBase && art.fountainWater){
+        SDL_RenderTexture(renderer,art.fountainBase,nullptr,&dst);
+        float width=0.f,height=0.f;
+        if(SDL_GetTextureSize(art.fountainWater,&width,&height)){
+            const int frame=int(seconds*9.f)%12;
+            const float cellW=width/4.f,cellH=height/3.f;
+            const SDL_FRect source{float(frame%4)*cellW,float(frame/4)*cellH,
+                                   cellW,cellH};
+            SDL_RenderTexture(renderer,art.fountainWater,&source,&dst);
+        }
+    }else if(art.fountainFrames[0]){
+        // Existing users without the split assets still get a STATIONARY
+        // fountain, not the old 12-frame animation that shakes left and right.
+        SDL_RenderTexture(renderer,art.fountainFrames[0],nullptr,&dst);
+    }
 }
 
 void loadVillageProps(SDL_Renderer* renderer,ArtAssets& art){
@@ -549,7 +564,15 @@ ArtAssets loadArtAssets(SDL_Renderer* renderer){
     loadFamilyFrames(renderer,result);
     loadHeroFrames(renderer,result);
     loadVillageProps(renderer,result);
-    loadFountainFrames(renderer,result);
+    result.fountainBase=loadArt(renderer,"fountain_base.png");
+    result.fountainWater=loadArt(renderer,"fountain_water_12frames.png");
+    if(!result.fountainBase || !result.fountainWater){
+        if(result.fountainBase){SDL_DestroyTexture(result.fountainBase);result.fountainBase=nullptr;}
+        if(result.fountainWater){SDL_DestroyTexture(result.fountainWater);result.fountainWater=nullptr;}
+        loadFountainFrames(renderer,result); // only the first frame is displayed
+        std::cerr<<"Fountain split sprites missing; using static legacy spring.png. "
+                 <<"Add fountain_base.png and fountain_water_12frames.png to assets.\n";
+    }
     if(!result.home||!result.village||!result.outskirts)
         std::cerr<<"AI art missing: extract art pack so assets/*.bmp exists. Using fallback visuals.\n";
     return result;
@@ -570,6 +593,8 @@ void destroyArtAssets(ArtAssets& art){
         if(t)SDL_DestroyTexture(t);
     for(SDL_Texture* t:art.fountainFrames)
         if(t)SDL_DestroyTexture(t);
+    if(art.fountainBase)SDL_DestroyTexture(art.fountainBase);
+    if(art.fountainWater)SDL_DestroyTexture(art.fountainWater);
 }
 void color(SDL_Renderer* r,Uint8 red,Uint8 green,Uint8 blue,Uint8 alpha=255){
     SDL_SetRenderDrawColor(r,red,green,blue,alpha);
