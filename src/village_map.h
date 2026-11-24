@@ -88,9 +88,11 @@ inline const std::array<Polygon,12>& obstacles(){
     }();
     return zones;
 }
-inline const std::array<Polygon,8>& terrain(){
-    static const std::array<Polygon,8> zones{{
-        // Upper stream, southern stream and lake; bridge cutouts handled below.
+// River/water zones only. The previous map's forest, cliff and edge polygons
+// covered clear grass/paths in the new ground artwork and caused invisible walls.
+// Cliffs can be restored later with a mask matched to the current map.
+inline const std::array<Polygon,4>& terrain(){
+    static const std::array<Polygon,4> zones{{
         polygon({{910,0},{1050,0},{1074,160},{1041,250},{1080,328},{1165,377},
                  {1280,368},{1365,409},{1364,469},{1230,437},{1108,420},
                  {1018,353},{972,273},{978,170}}),
@@ -98,11 +100,7 @@ inline const std::array<Polygon,8>& terrain(){
                  {1266,740},{1231,704},{1230,608},{1261,520}}),
         polygon({{1250,698},{1354,677},{1381,782},{1519,829},{1536,854},
                  {1536,1024},{1108,1024},{1106,950},{1184,886}}),
-        polygon({{1021,929},{1130,914},{1164,1024},{1014,1024}}), // dockside coast
-        polygon({{0,0},{225,0},{242,121},{131,195},{0,212}}), // northwest forest/cliffs
-        polygon({{0,765},{250,755},{329,851},{317,959},{205,1024},{0,1024}}), // southwest cliffs
-        polygon({{1445,0},{1536,0},{1536,266},{1436,246}}), // northeast trees
-        polygon({{0,1020},{1536,1020},{1536,1024},{0,1024}}) // bottom edge
+        polygon({{1021,929},{1130,914},{1164,1024},{1014,1024}})
     }};
     return zones;
 }
@@ -125,14 +123,8 @@ inline bool blocked(game::Vec2 world,float radius=11.f){
         for(auto bridge:bridgePassages())if(inRect(world,bridge,0.f)){crossing=true;break;}
         if(!crossing && inPolygon(world,terrainZone,radius))return true;
     }
-    // fountain, market booths, walls and other decorative fixtures
-    for(auto r:std::array<Rect,5>{{
-        {734*SCALE,448*SCALE,88*SCALE,84*SCALE},
-        {571*SCALE,455*SCALE,93*SCALE,92*SCALE},
-        {1032*SCALE,433*SCALE,90*SCALE,81*SCALE},
-        {853*SCALE,596*SCALE,105*SCALE,95*SCALE},
-        {57*SCALE,502*SCALE,127*SCALE,130*SCALE}
-    }})if(inRect(world,r,radius))return true;
+    // Do not collide with legacy fountain, stalls or wall rectangles:
+    // those objects no longer exist in the new village ground map.
     return false;
 }
 inline void move(game::Vec2& p,game::Vec2 velocity,float dt,float radius=11.f){
