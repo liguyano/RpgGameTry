@@ -2,6 +2,9 @@
 #include "village_map.h"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#if RPG_HAS_SDL3_TTF
+#include <SDL3_ttf/SDL_ttf.h>
+#endif
 #if RPG_HAS_SDL3_IMAGE
 #include <SDL3_image/SDL_image.h>
 #endif
@@ -92,6 +95,7 @@ struct World {
     int story=0;
     std::string dialogue;
     std::string speaker;
+    float dialogueAge=0.f;
     bool justArrived=true;
     bool largeVillage=false;
     bool showCollision=false;
@@ -765,7 +769,10 @@ void attack(World& w){
 void update(World& w,const bool* keys,float dt){
     if(w.won||w.lost) return;
     w.time+=dt;
-    if(!w.dialogue.empty())return;
+    if(!w.dialogue.empty()){
+        w.dialogueAge+=dt;
+        return;
+    }
     if(w.scene==Scene::HOME)updateFamilyMotion(w.family,w.hero.pos,dt);
     w.hero.slashTimer=std::max(0.f,w.hero.slashTimer-dt);
     w.hero.moving=false;
@@ -1011,7 +1018,104 @@ std::string lowercaseAscii(std::string value){
     }
     return value;
 }
-void drawDialogue(SDL_Renderer* r,const World& w,const ArtAssets& art){
+
+// All text rendering resources are owned by the game and released on shutdown.
+// Avoid creating a new SDL_Texture every frame; cache by visible text.
+struct DialogueFonts {
+#if RPG_HAS_SDL3_TTF
+    TTF_Font* body=nullptr;
+    TTF_Font* name=nullptr;
+    TTF_Font* hint=nullptr;
+    SDL_Texture* bodyTexture=nullptr;
+    SDL_Texture* nameTexture=nullptr;
+    SDL_Texture* hintTexture=nullptr;
+    std::string lastBody,lastName;
+    int bodyW=0,bodyH=0,nameW=0,nameH=0,hintW=0,hintH=0;
+#endif
+    bool enabled=false;
+};
+#if RPG_HAS_SDL3_TTF
+SDL_Texture* makeText(SDL_Renderer* renderer,TTF_Font* font,const std::string& utf8,
+                      SDL_Color fg,int maxWidth,int& w,int& h){
+    if(!font || utf8.empty())return nullptr;
+    SDL_Surface* surface=TTF_RenderText_Blended_Wrapped(font,utf8.c_str(),0,fg,maxWidth);
+    if(!surface)return nullptr;
+    w=surface->w;h=surface->h;
+    SDL_Texture* texture=SDL_CreateTextureFromSurface(renderer,surface);
+    SDL_DestroySurface(surface);
+    if(texture)SDL_SetTextureBlendMode(texture,SDL_BLENDMODE_BLEND);
+    return texture;
+}
+void cachedText(SDL_Renderer* renderer,TTF_Font* font,
+                SDL_Texture*& texture,std::string& last,
+                const std::string& value,SDL_Color fg,int wrap,
+                int& w,int& h,float x,float y){
+    if(last!=value){
+        if(texture)SDL_DestroyTexture(texture);
+        texture=makeText(renderer,font,value,fg,wrap,w,h);
+        last=value;
+    }
+    if(texture){
+        SDL_FRect dst{x,y,float(w),float(h)};
+        SDL_RenderTexture(renderer,texture,nullptr,&dst);
+    }
+}
+#endif
+DialogueFonts openDialogueFonts(SDL_Renderer* renderer){
+    DialogueFonts fonts;
+#if RPG_HAS_SDL3_TTF
+    if(!TTF_Init()){
+        std::cerr<<"SDL3_ttf init failed: "<<SDL_GetError()<<"\n";
+        return fonts;
+    }
+    namespace fs=std::filesystem;
+    // Custom font first; Windows system font as a no-install fallback.
+    const fs::path candidates[]={
+        "assets/fonts/dialogue.ttf",
+        "assets/fonts/dialogue.otf",
+        "../assets/fonts/dialogue.ttf",
+        "../assets/fonts/dialogue.otf",
+        "../../assets/fonts/dialogue.ttf",
+        "C:/Windows/Fonts/georgia.ttf",
+        "C:/Windows/Fonts/segoeui.ttf",
+        "C:/Windows/Fonts/arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    };
+    for(const auto& path:candidates){
+        if(!fs::exists(path))continue;
+        fonts.body=TTF_OpenFont(path.string().c_str(),23.f);
+        fonts.name=TTF_OpenFont(path.string().c_str(),23.f);
+        fonts.hint=TTF_OpenFont(path.string().c_str(),17.f);
+        if(fonts.body&&fonts.name&&fonts.hint){
+            fonts.enabled=true;
+            std::cerr<<"Using dialogue font: "<<path.string()<<"\n";
+            break;
+        }
+        if(fonts.body)TTF_CloseFont(fonts.body);
+        if(fonts.name)TTF_CloseFont(fonts.name);
+        if(fonts.hint)TTF_CloseFont(fonts.hint);
+        fonts.body=fonts.name=fonts.hint=nullptr;
+    }
+    if(!fonts.enabled)std::cerr<<"No usable TTF font found; pixel text fallback\n";
+    (void)renderer;
+#else
+    (void)renderer;
+#endif
+    return fonts;
+}
+void closeDialogueFonts(DialogueFonts& fonts){
+#if RPG_HAS_SDL3_TTF
+    for(SDL_Texture* t:{fonts.bodyTexture,fonts.nameTexture,fonts.hintTexture})
+        if(t)SDL_DestroyTexture(t);
+    for(TTF_Font* f:{fonts.body,fonts.name,fonts.hint})
+        if(f)TTF_CloseFont(f);
+    TTF_Quit();
+#else
+    (void)fonts;
+#endif
+}
+
+void drawDialogue(SDL_Renderer* r,const World& w,const ArtAssets& art,DialogueFonts& fonts){
     if(w.dialogue.empty())return;
     SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_BLEND);
     color(r,18,18,26,230);
@@ -1022,7 +1126,14 @@ void drawDialogue(SDL_Renderer* r,const World& w,const ArtAssets& art){
     outline(r,50,HEIGHT-199,WIDTH-100,150,110,88,66);
     rect(r,72,HEIGHT-223,210,34,83,55,44);
     outline(r,72,HEIGHT-223,210,34,216,174,95);
-    fillText(r,lowercaseAscii(w.speaker),91,HEIGHT-214,3,243,217,156);
+    const std::string speaker=lowercaseAscii(w.speaker);
+#if RPG_HAS_SDL3_TTF
+    if(fonts.enabled)
+        cachedText(r,fonts.name,fonts.nameTexture,fonts.lastName,speaker,
+                   {243,217,156,255},200,fonts.nameW,fonts.nameH,91.f,float(HEIGHT-221));
+    else
+#endif
+        fillText(r,speaker,91,HEIGHT-214,3,243,217,156);
     SDL_Texture* portrait=art.hero;
     if(w.speaker=="MOTHER")portrait=art.mother;
     else if(w.speaker=="FATHER" || w.speaker=="ELDER ROWAN")portrait=art.father;
@@ -1032,11 +1143,34 @@ void drawDialogue(SDL_Renderer* r,const World& w,const ArtAssets& art){
         SDL_RenderTexture(r,portrait,nullptr,&dst);
         outline(r,71,HEIGHT-170,105,106,218,177,109);
     }
-    fillText(r,lowercaseAscii(w.dialogue),portrait?193:75,HEIGHT-169,3,242,232,213);
-    fillText(r,"press space or e",WIDTH-279,HEIGHT-75,2,232,194,112);
+
+    const std::string body=lowercaseAscii(w.dialogue);
+    const size_t revealed=std::min(body.size(),size_t(w.dialogueAge*34.f));
+    const std::string visible=body.substr(0,revealed);
+#if RPG_HAS_SDL3_TTF
+    if(fonts.enabled){
+        const float x=portrait?193.f:75.f;
+        cachedText(r,fonts.body,fonts.bodyTexture,fonts.lastBody,visible,
+                   {242,232,213,255},int(WIDTH-x-95),fonts.bodyW,fonts.bodyH,
+                   x,float(HEIGHT-172));
+        // Hint texture is constant; render only once.
+        if(!fonts.hintTexture)
+            fonts.hintTexture=makeText(r,fonts.hint,"press space or e",
+                                       {232,194,112,255},0,fonts.hintW,fonts.hintH);
+        if(fonts.hintTexture){
+            SDL_FRect dst{float(WIDTH-70-fonts.hintW),float(HEIGHT-82),
+                          float(fonts.hintW),float(fonts.hintH)};
+            SDL_RenderTexture(r,fonts.hintTexture,nullptr,&dst);
+        }
+    }else
+#endif
+    {
+        fillText(r,visible,portrait?193:75,HEIGHT-169,3,242,232,213);
+        fillText(r,"press space or e",WIDTH-279,HEIGHT-75,2,232,194,112);
+    }
 }
 void showDialogue(World& w,const char* speaker,const char* words) {
-    w.speaker=speaker;w.dialogue=words;
+    w.speaker=speaker;w.dialogue=words;w.dialogueAge=0.f;
 }
 void goVillage(World& w){
     w.scene=Scene::VILLAGE;
@@ -1152,6 +1286,7 @@ int main(int argc,char** argv){
     SDL_SetRenderLogicalPresentation(renderer,WIDTH,HEIGHT,SDL_LOGICAL_PRESENTATION_LETTERBOX);
     SDL_SetRenderVSync(renderer,1);
     ArtAssets art=loadArtAssets(renderer);
+    DialogueFonts fonts=openDialogueFonts(renderer);
     World world;reset(world);
     world.largeVillage=art.expandedVillage;
     bool running=true;
@@ -1166,8 +1301,12 @@ int main(int argc,char** argv){
                     reset(world);world.largeVillage=art.expandedVillage;
                 }
                 if(ev.key.key==SDLK_F3)world.showCollision=!world.showCollision;
-                if(ev.key.key==SDLK_E || (ev.key.key==SDLK_SPACE && !world.dialogue.empty()))
-                    interact(world);
+                if(ev.key.key==SDLK_E || (ev.key.key==SDLK_SPACE && !world.dialogue.empty())){
+                    if(!world.dialogue.empty() &&
+                       size_t(world.dialogueAge*34.f)<world.dialogue.size())
+                        world.dialogueAge=float(world.dialogue.size())/34.f+1.f;
+                    else interact(world);
+                }
                 else if(ev.key.key==SDLK_SPACE)attack(world);
             }
         }
@@ -1261,10 +1400,11 @@ int main(int argc,char** argv){
             drawInteractPrompt(renderer,world);
         }else drawHud(renderer,world);
         drawOverlay(renderer,world);
-        drawDialogue(renderer,world,art);
+        drawDialogue(renderer,world,art,fonts);
         SDL_RenderPresent(renderer);
         if(!(SDL_GetWindowFlags(window)&SDL_WINDOW_INPUT_FOCUS))SDL_Delay(16);
     }
+    closeDialogueFonts(fonts);
     destroyArtAssets(art);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
