@@ -1,17 +1,16 @@
-## Six-direction high-frame-rate hero walking
+## Eight-direction hero walking (hero.png)
 
-The replaced `assets/hero.png` is a **white-background sprite atlas**
-with a header, a left direction column, and **6 rows × 12 frames**.
-`src/hero_animation.h` provides cell geometry, facing selection, and
-12-FPS playback. `asset_pipeline.inc` removes the white matte while
-preparing the 72 individual textures. The original hero renderer is reused.
+The latest `assets/hero.png` uses an **8 × 10 sprite atlas** with a
+pure-white background and no headings. Each of the eight rows is a direction
+and each of its ten cells is one walking frame. `src/hero_animation.h`
+selects direction and frame (14 FPS), and `asset_pipeline.inc` preloads
+80 separate textures, replacing the near-white matte with transparent pixels
+without the previous semi-transparent white fringe.
 
-Directions in image row order: **Down, Down-Left, Down-Right, Left, Right,
-Up**. Diagonal movement toward the north uses the Up row because the provided
-art does not contain Up-Left / Up-Right frames. Walking stops on frame 1
-when no directional key is held. The scene remains rendered at the existing
-character-foot coordinates and size. No extra hero attack animations are
-introduced in this update.
+Atlas row order: Down, Down-Left, Left, Up-Left, Up, Up-Right, Right,
+Down-Right. WASD combinations select all eight directional animations.
+Idle uses frame zero of the direction most recently faced. Character position,
+collisions, attack actions and inventory behavior are unchanged.
 
 ## Equipment progression and combat stats
 
