@@ -90,6 +90,16 @@ int main(int argc,char** argv){
                 SDL_ConvertEventToRenderCoordinates(renderer,&ev);
                 if(world.shopMenu)handleShopClick(world,ev.button.x,ev.button.y);
                 else if(world.inventoryOpen)clickInventory(world,ev.button.x,ev.button.y);
+                else if(world.scene==Scene::OUTSKIRTS && world.story>=9 &&
+                        world.dialogue.empty()){
+                    const Vec2 towardMouse{
+                        ev.button.x-world.hero.pos.x,
+                        ev.button.y-world.hero.pos.y
+                    };
+                    if(game::distanceSquared({0.f,0.f},towardMouse)>16.f)
+                        world.hero.facing=normalized(towardMouse);
+                    attack(world);
+                }
             }
             if(ev.type==SDL_EVENT_KEY_DOWN && ev.key.repeat==0){
                 if(world.shopMenu){
@@ -248,7 +258,8 @@ int main(int argc,char** argv){
         }else{
             if(art.outskirts)drawBackground(renderer,art.outskirts);
             else drawOutskirts(renderer,world.time);
-            for(const auto& e:world.enemies)if(e.hp>0)drawEnemy(renderer,e);
+            for(const auto& e:world.enemies)if(e.hp>0)
+                drawCombatGoblin(renderer,art,e);
         }
         Vec2 heroScreen=world.hero.pos;
         if(world.scene==Scene::VILLAGE && world.largeVillage){
@@ -261,6 +272,9 @@ int main(int argc,char** argv){
                 drawKnight(renderer,heroScreen,world.hero.facing,world.hero.slashTimer,world.hero.hurtTimer>0);
             else drawYoungHero(renderer,heroScreen);
         }
+        if(world.scene==Scene::OUTSKIRTS && world.story>=9)
+            drawSwordSwing(renderer,art,heroScreen,
+                           world.hero.facing,world.hero.slashTimer);
         if(world.scene==Scene::SHOP)
             drawShopFurniture(renderer,art,world.hero.pos.y,true);
         if(world.scene==Scene::VILLAGE && world.largeVillage){
