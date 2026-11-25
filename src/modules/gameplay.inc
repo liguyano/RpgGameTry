@@ -21,6 +21,7 @@ void goVillage(World& w);
 void goOutskirts(World& w);
 void exitShop(World& w);
 void enterHome(World& w);
+void returnToVillage(World& w);
 
 void attack(World& w){
     if(w.story<9 || w.scene!=Scene::OUTSKIRTS || !w.dialogue.empty() ||
@@ -39,8 +40,7 @@ void attack(World& w){
         e.windup=0.f;
         e.attackTimer=std::max(e.attackTimer,.35f);
         const Vec2 push=combat::toward(w.hero.pos,e.pos);
-        e.pos.x=clamp(e.pos.x+push.x*20.f,24.f,float(WIDTH-24));
-        e.pos.y=clamp(e.pos.y+push.y*20.f,200.f,float(HEIGHT-24));
+        east_map::move(e.pos,{push.x*75.f,push.y*75.f},.26f,10.f);
         if(e.hp==0)++w.hero.kills;
     }
     if(w.hero.kills>=8)w.won=true;
@@ -79,8 +79,8 @@ void update(World& w,const bool* keys,float dt){
         }else if(w.scene==Scene::SHOP){
             shop::move(w.hero.pos,{dir.x*PLAYER_SPEED,dir.y*PLAYER_SPEED},dt);
         }else if(w.scene==Scene::OUTSKIRTS){
-            w.hero.pos.x=clamp(w.hero.pos.x+dir.x*PLAYER_SPEED*dt,20.f,float(WIDTH-20));
-            w.hero.pos.y=clamp(w.hero.pos.y+dir.y*PLAYER_SPEED*dt,195.f,float(HEIGHT-20));
+            east_map::move(w.hero.pos,{dir.x*PLAYER_SPEED,dir.y*PLAYER_SPEED},
+                           dt,10.f);
         }else{
             if(w.largeVillage)village::move(w.hero.pos,{dir.x*PLAYER_SPEED,dir.y*PLAYER_SPEED},dt,8);
             else moveBody(w.hero.pos,{dir.x*PLAYER_SPEED,dir.y*PLAYER_SPEED},dt,11);
@@ -114,13 +114,11 @@ void update(World& w,const bool* keys,float dt){
             exitShop(w);
             return;
         }
-        if(w.scene==Scene::OUTSKIRTS && w.story<9 && dir.x<-.30f &&
-           w.hero.pos.x<=35.f){
-            w.scene=Scene::VILLAGE;
-            w.hero.pos=w.largeVillage?village::pos(1376.f,751.f):Vec2{780.f,345.f};
-            w.hero.facing={-1.f,0.f};
-            w.hero.moving=false;
-            w.dialogue.clear();
+        // Left bridge connects back to the village even after the battle
+        // has begun, rather than trapping the player in the clearing.
+        if(w.scene==Scene::OUTSKIRTS && dir.x<-.30f &&
+           east_map::atVillageExit(w.hero.pos)){
+            returnToVillage(w);
             return;
         }
     }
@@ -157,8 +155,8 @@ void update(World& w,const bool* keys,float dt){
             e.windup=combat::ENEMY_WINDUP;
         }else if(distance<combat::ENEMY_NOTICE_DISTANCE &&
                  distance>combat::ENEMY_ATTACK_RANGE-5.f){
-            e.pos.x=clamp(e.pos.x+chase.x*ENEMY_SPEED*dt,20.f,float(WIDTH-20));
-            e.pos.y=clamp(e.pos.y+chase.y*ENEMY_SPEED*dt,195.f,float(HEIGHT-20));
+            east_map::move(e.pos,{chase.x*ENEMY_SPEED,chase.y*ENEMY_SPEED},
+                           dt,10.f);
         }
     }
 }
