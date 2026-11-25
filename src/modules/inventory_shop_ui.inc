@@ -1,35 +1,21 @@
 // inventory_shop_ui.inc — implementation fragment; included inside main.cpp's anonymous namespace.
 // Keep the relative include order when refactoring dependencies.
 // First-playable inventory: item ids are fixed positions on items.png.
-struct ItemView {const char* name;int column,row;int gearSlot;bool usable;};
-constexpr std::array<ItemView,17> ITEM_VIEW{{
-    {"EMPTY",0,0,-1,false},
-    {"IRON SWORD",0,0,0,false},{"BATTLE AXE",1,0,0,false},
-    {"HUNTING BOW",2,0,0,false},{"OAK STAFF",3,0,0,false},
-    {"ROYAL SHIELD",4,0,1,false},{"STEEL HELM",5,0,2,false},
-    {"CHAIN ARMOR",0,1,3,false},{"LEATHER BOOTS",1,1,4,false},
-    {"WORK GLOVES",2,1,5,false},{"SILVER RING",3,1,5,false},
-    {"RUBY AMULET",4,1,5,false},{"HEALTH POTION",5,1,-1,true},
-    {"MANA POTION",0,2,-1,true},{"HERBS",1,2,-1,true},
-    {"BREAD",2,2,-1,true},{"APPLE",3,2,-1,true}
-}};
-inline const ItemView& itemView(int id){
-    return ITEM_VIEW[size_t(id>=0 && id<int(ITEM_VIEW.size())?id:0)];
-}
+// Inventory, shop and combat share one authoritative definition per item.
+inline const equipment::Item& itemView(int id){return equipment::item(id);}
 void useInventoryItem(World& world,int index){
     if(index<0||index>=int(world.bag.size()))return;
     const int id=world.bag[size_t(index)];
-    if(!id)return;
-    const ItemView& def=itemView(id);
-    if(def.usable){
-        if(id==12||id==14||id==15||id==16){
-            if(world.hero.hp>=MAX_HEALTH)return;
-            world.hero.hp=std::min(MAX_HEALTH,world.hero.hp+(id==12?40:15));
-        }
+    if(id<=0)return;
+    const auto& def=itemView(id);
+    if(def.consumable){
+        // Mana regeneration will be added when a mana system exists; do not
+        // consume a mana potion for no effect.
+        if(def.heal==0 || world.hero.hp>=MAX_HEALTH)return;
+        world.hero.hp=std::min(MAX_HEALTH,world.hero.hp+def.heal);
         world.bag[size_t(index)]=0;
-    }else if(def.gearSlot>=0){
-        const size_t slot=size_t(def.gearSlot);
-        std::swap(world.bag[size_t(index)],world.equipped[slot]);
+    }else if(def.slot>=0){
+        equipment::equip(world.bag,world.equipped,index);
     }
 }
 bool useQuickSlot(World& world,int slot){
@@ -39,7 +25,7 @@ bool useQuickSlot(World& world,int slot){
     if(!id)return false;
     for(int i=0;i<int(world.bag.size());i++){
         if(world.bag[size_t(i)]==id){
-            if(itemView(id).usable){useInventoryItem(world,i);return true;}
+            if(itemView(id).consumable){useInventoryItem(world,i);return true;}
             return false;
         }
     }
@@ -90,7 +76,7 @@ void itemIcon(SDL_Renderer* renderer,const ArtAssets& art,int id,float x,float y
     constexpr float centersX[6]={141.f,365.f,586.f,810.f,1037.f,1253.f};
     constexpr float centersY[3]={109.f,278.f,447.f};
     atlasImage(renderer,art.itemsAtlas,
-               centersX[info.column]-77.f,centersY[info.row]-73.f,154.f,146.f,
+               centersX[info.iconColumn]-77.f,centersY[info.iconRow]-73.f,154.f,146.f,
                x,y,size,size,1408.f,1024.f);
 }
 void uiBox(SDL_Renderer* renderer,float x,float y,float w,float h){
@@ -208,11 +194,20 @@ void drawInventory(SDL_Renderer* renderer,const World& w,const ArtAssets& art){
     uiBox(renderer,78.f,416.f,464.f,86.f);
     const int selected=w.bag[size_t(w.inventorySelection)];
     fillText(renderer,itemView(selected).name,94,434,3,243,216,151);
-    fillText(renderer,selected?(itemView(selected).usable?"E: USE ITEM":"E: EQUIP ITEM"):
+    fillText(renderer,selected?(itemView(selected).consumable?"E: USE ITEM":"E: EQUIP ITEM"):
              "EMPTY SLOT",94,464,2,221,206,180);
-    fillText(renderer,"GOLD: "+std::to_string(w.gold),645,399,2,241,203,114);
+    fillText(renderer,"GOLD: "+std::to_string(w.gold),645,393,2,241,203,114);
+    fillText(renderer,"ATK: "+std::to_string(equipment::attack(w.equipped)),
+             644,430,2,240,183,120);
+    fillText(renderer,"DEF: "+std::to_string(equipment::defense(w.equipped)),
+             644,458,2,158,212,238);
+    const auto& detail=itemView(selected);
+    if(selected>0 && !detail.consumable){
+        fillText(renderer,"ATK +"+std::to_string(detail.attack)+
+                 "  DEF +"+std::to_string(detail.defense),94,484,1,235,203,143);
+    }
     fillText(renderer,"B / I: CLOSE     ARROWS: SELECT     E: USE / EQUIP",
-             91,496,1,215,198,159);
+             91,508,1,215,198,159);
     drawQuickbar(renderer,w,art);
 }
 
