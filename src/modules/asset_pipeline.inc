@@ -667,6 +667,57 @@ void drawShopFurniture(SDL_Renderer* r,const ArtAssets& art,
     }
 }
 
+// These generated combat atlases have a dark external matte. Remove only
+// near-black pixels connected to the atlas canvas, preserving the dark
+// outlines inside a goblin or a sword.
+SDL_Texture* loadCombatAtlas(SDL_Renderer* renderer,const char* filename){
+#if RPG_HAS_SDL3_IMAGE
+    namespace fs=std::filesystem;
+    fs::path path;
+    for(const fs::path& candidate:{fs::path("assets")/filename,
+                                   fs::path("../assets")/filename,
+                                   fs::path("../../assets")/filename}){
+        if(fs::exists(candidate)){path=candidate;break;}
+    }
+    if(path.empty())return nullptr;
+    SDL_Surface* surface=IMG_Load(path.string().c_str());
+    if(!surface)return nullptr;
+    // Use a single background threshold: black used by shadows in the
+    // actual sprites is kept unless it is directly connected to the matte.
+    const int width=surface->w,height=surface->h;
+    std::vector<Uint8> visited(size_t(width)*size_t(height),0);
+    std::vector<int> queue;
+    queue.reserve(visited.size());
+    auto isMatte=[&](int x,int y){
+        Uint8 red=0,green=0,blue=0,alpha=255;
+        if(!SDL_ReadSurfacePixel(surface,x,y,&red,&green,&blue,&alpha))return false;
+        return alpha<15 || (red<42 && green<42 && blue<42);
+    };
+    auto enqueue=[&](int x,int y){
+        if(x<0||y<0||x>=width||y>=height)return;
+        const size_t k=size_t(y)*size_t(width)+size_t(x);
+        if(visited[k]||!isMatte(x,y))return;
+        visited[k]=1;queue.push_back(int(k));
+    };
+    for(int x=0;x<width;x++){enqueue(x,0);enqueue(x,height-1);}
+    for(int y=0;y<height;y++){enqueue(0,y);enqueue(width-1,y);}
+    for(size_t head=0;head<queue.size();head++){
+        const int index=queue[head],x=index%width,y=index/width;
+        SDL_WriteSurfacePixel(surface,x,y,0,0,0,0);
+        enqueue(x-1,y);enqueue(x+1,y);enqueue(x,y-1);enqueue(x,y+1);
+    }
+    SDL_Texture* texture=SDL_CreateTextureFromSurface(renderer,surface);
+    SDL_DestroySurface(surface);
+    if(texture){
+        SDL_SetTextureScaleMode(texture,SDL_SCALEMODE_NEAREST);
+        SDL_SetTextureBlendMode(texture,SDL_BLENDMODE_BLEND);
+    }
+    return texture;
+#else
+    (void)renderer;(void)filename;
+    return nullptr;
+#endif
+}
 ArtAssets loadArtAssets(SDL_Renderer* renderer){
     ArtAssets result;
 #if RPG_HAS_SDL3_IMAGE
@@ -689,6 +740,8 @@ ArtAssets loadArtAssets(SDL_Renderer* renderer){
     loadVillagerFrames(renderer,result);
     result.uiAtlas=loadArt(renderer,"ui.png");
     result.itemsAtlas=loadArt(renderer,"items.png");
+    result.goblinAtlas=loadCombatAtlas(renderer,"goblin.png");
+    result.swordAtlas=loadCombatAtlas(renderer,"sword_attack.png");
     result.shopBackground=loadArt(renderer,"shopback.png");
     loadShopFurniture(renderer,result);
     result.fountainBase=loadArt(renderer,"fountain_base.png");
@@ -727,6 +780,8 @@ void destroyArtAssets(ArtAssets& art){
     if(art.fountainAnimation)SDL_DestroyTexture(art.fountainAnimation);
     if(art.uiAtlas)SDL_DestroyTexture(art.uiAtlas);
     if(art.itemsAtlas)SDL_DestroyTexture(art.itemsAtlas);
+    if(art.goblinAtlas)SDL_DestroyTexture(art.goblinAtlas);
+    if(art.swordAtlas)SDL_DestroyTexture(art.swordAtlas);
     if(art.shopBackground)SDL_DestroyTexture(art.shopBackground);
     for(SDL_Texture* t:art.shopFurniture)if(t)SDL_DestroyTexture(t);
     for(SDL_Texture* t:art.villagerFrames)if(t)SDL_DestroyTexture(t);
