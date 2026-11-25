@@ -1,3 +1,14 @@
+## Walking footsteps and ground particles
+
+Outdoor movement now leaves a subtle burst of short-lived pixel particles
+beside the hero's boots. The village path uses warm dust; eastern wilderness
+mixes grass flecks with dust. The `src/footstep_particles.h` emitter uses a
+fixed 64-particle pool, triggers only after real movement (so blocked steps
+create no particles), and fades each fragment within about half a second.
+It does not spawn on indoor floors. World-space particles scroll correctly
+with the village camera and appear behind the character without requiring
+any additional PNG assets.
+
 ## Village eastern wilderness: new battle map
 
 The image `assets/gablingather.png` now replaces the old outskirts BMP
