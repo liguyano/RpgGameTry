@@ -5,12 +5,20 @@ struct Enemy {
     int hp=equipment::ENEMY_HEALTH;
     float attackTimer=0;
     float wobble=0;
+    float windup=0.f;
+    float stagger=0.f;
+    float flash=0.f;
+    float floatDamage=0.f;
+    int damageNumber=0;
+    bool preparing=false;
+    Vec2 facing{0.f,1.f};
 };
 struct Player {
     Vec2 pos{WIDTH/2.f,HEIGHT/2.f};
     int hp=MAX_HEALTH;
     Vec2 facing{0,1};
     float slashTimer=0;
+    float slashDuration=combat::SWING_DURATION;
     float hurtTimer=0;
     int kills=0;
     bool moving=false;
@@ -180,6 +188,8 @@ struct ArtAssets {
     SDL_Texture* uiAtlas=nullptr;
     SDL_Texture* itemsAtlas=nullptr;
     SDL_Texture* shopBackground=nullptr;
+    SDL_Texture* goblinAtlas=nullptr;
+    SDL_Texture* swordAtlas=nullptr;
     std::array<SDL_Texture*,shop::furniture.size()> shopFurniture{};
     std::array<SDL_Texture*,8*4*4> villagerFrames{};
 };
