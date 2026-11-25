@@ -158,6 +158,7 @@ struct World {
     int quickSelected=0;
     int gold=18;
     Player hero;
+    footsteps::Emitter steps;
     std::array<FamilyMotion,3> family{initialFamily(0),initialFamily(1),initialFamily(2)};
     std::array<VillagerMotion,VILLAGER_COUNT> villagers=initialVillagers();
     std::vector<Enemy> enemies;
