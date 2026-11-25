@@ -297,6 +297,33 @@ void drawSwordSwing(SDL_Renderer* r,const ArtAssets& art,
                              double(angle*180.f/combat::PI),
                              nullptr,SDL_FLIP_NONE);
 }
+// A few small translucent pixels near the boots. Particles are spawned in
+// world coordinates, then shifted with the village camera during rendering.
+// Draw before the hero so the feet always remain in the foreground.
+void drawFootstepParticles(SDL_Renderer* renderer,
+                           const footsteps::Emitter& emitter,Vec2 camera){
+    SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_BLEND);
+    for(const auto& particle:emitter.particles){
+        if(particle.life<=0.f || particle.lifetime<=0.f)continue;
+        const float ratio=particle.life/particle.lifetime;
+        const float x=particle.position.x-camera.x;
+        const float y=particle.position.y-camera.y;
+        if(x<-10.f || x>WIDTH+10.f || y<-10.f || y>HEIGHT+10.f)continue;
+        const Uint8 alpha=Uint8(std::clamp(150.f*ratio,0.f,255.f));
+        if(particle.grass){
+            SDL_SetRenderDrawColor(renderer,135,177,80,alpha);
+        }else if(emitter.scene==1){
+            SDL_SetRenderDrawColor(renderer,187,154,111,alpha);
+        }else{
+            SDL_SetRenderDrawColor(renderer,174,157,124,alpha);
+        }
+        const float diameter=particle.size*(1.1f+.45f*(1.f-ratio));
+        const SDL_FRect fragment{x-diameter*.5f,y-diameter*.5f,
+                                 diameter,particle.grass?diameter*.58f:diameter};
+        SDL_RenderFillRect(renderer,&fragment);
+    }
+    SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_NONE);
+}
 void drawHud(SDL_Renderer* r,const World& w){
     // Persistent health bar is drawn separately in all scenes.
     fillText(r,"KNIGHT OF ASHVALE",23,14,2,231,202,135);
