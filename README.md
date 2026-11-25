@@ -1,3 +1,18 @@
+## Six-direction high-frame-rate hero walking
+
+The replaced `assets/hero.png` is a **white-background sprite atlas**
+with a header, a left direction column, and **6 rows × 12 frames**.
+`src/hero_animation.h` provides cell geometry, facing selection, and
+12-FPS playback. `asset_pipeline.inc` removes the white matte while
+preparing the 72 individual textures. The original hero renderer is reused.
+
+Directions in image row order: **Down, Down-Left, Down-Right, Left, Right,
+Up**. Diagonal movement toward the north uses the Up row because the provided
+art does not contain Up-Left / Up-Right frames. Walking stops on frame 1
+when no directional key is held. The scene remains rendered at the existing
+character-foot coordinates and size. No extra hero attack animations are
+introduced in this update.
+
 ## Equipment progression and combat stats
 
 Players no longer start with a complete set of powerful demo weapons and
