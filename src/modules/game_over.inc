@@ -10,6 +10,7 @@ void drawOverlay(SDL_Renderer* r,const World& w){
     outline(r,WIDTH/2-290,HEIGHT/2-108,580,215,197,165,105);
     fillText(r,w.won?"VICTORY!":"YOU HAVE FALLEN",WIDTH/2-175,HEIGHT/2-55,5,239,202,118);
     fillText(r,w.won?"ASHVALE IS SAFE":"THE VILLAGE NEEDS YOU",WIDTH/2-156,HEIGHT/2+12,3,221,211,188);
-    fillText(r,"PRESS R TO RESTART",WIDTH/2-132,HEIGHT/2+65,3,213,176,113);
+    fillText(r,w.won?"E: VILLAGE   R: RESTART":"PRESS R TO RESTART",
+             WIDTH/2-150,HEIGHT/2+65,3,213,176,113);
 }
 
