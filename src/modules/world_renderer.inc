@@ -224,14 +224,17 @@ void drawEnemy(SDL_Renderer* r,const Enemy& e){
     rect(r,x-15,y-3,5,18,74,66,56);
     rect(r,x+11,y-3,5,18,74,66,56);
     rect(r,x-12,y-33,24,3,62,42,35);
-    rect(r,x-12,y-33,static_cast<int>(24*e.hp/3.f),3,188,66,57);
+    rect(r,x-12,y-33,static_cast<int>(24.f*std::max(0,e.hp)/float(equipment::ENEMY_HEALTH)),3,188,66,57);
 }
 void drawHud(SDL_Renderer* r,const World& w){
     // Persistent health bar is drawn separately in all scenes.
     fillText(r,"KNIGHT OF ASHVALE",23,14,2,231,202,135);
     rect(r,WIDTH-225,10,213,54,22,32,38);
     outline(r,WIDTH-225,10,213,54,189,153,88);
-    fillText(r,"GOBLINS: "+std::to_string(w.hero.kills)+"/8",WIDTH-213,21,3,233,199,133);
+    fillText(r,"GOBLINS: "+std::to_string(w.hero.kills)+"/8",WIDTH-213,21,2,233,199,133);
+    fillText(r,"ATK "+std::to_string(equipment::attack(w.equipped))+
+             "   DEF "+std::to_string(equipment::defense(w.equipped)),
+             WIDTH-213,46,2,235,213,181);
     rect(r,9,HEIGHT-35,WIDTH-18,25,22,32,38);
     outline(r,9,HEIGHT-35,WIDTH-18,25,189,153,88);
     fillText(r,"WASD MOVE   SPACE ATTACK   R RESTART   ESC QUIT",23,HEIGHT-28,2,231,209,168);
