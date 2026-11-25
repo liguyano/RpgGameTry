@@ -108,11 +108,11 @@ void drawQuickbar(SDL_Renderer* renderer,const World& w,const ArtAssets& art){
 }
 // Both mouse hit testing and rendering share the same item row rectangles.
 int shopItemAt(float x,float y){
-    constexpr float left=204.f,right=730.f,top=192.f,stride=55.f;
+    constexpr float left=204.f,right=730.f,top=192.f,stride=45.f;
     if(x<left||x>=right||y<top)return -1;
     const int row=int((y-top)/stride);
     if(row<0||row>=int(SHOP_GOODS.size()))return -1;
-    return y<top+float(row)*stride+52.f?row:-1;
+    return y<top+float(row)*stride+43.f?row:-1;
 }
 bool shopCloseAt(float x,float y){
     return x>=715.f&&x<=765.f&&y>=119.f&&y<=165.f;
@@ -145,13 +145,13 @@ void drawShopMenu(SDL_Renderer* r,const World& w,const ArtAssets& art){
     fillText(r,"GOLD: "+std::to_string(w.gold),565,143,2,244,211,143);
     for(int i=0;i<int(SHOP_GOODS.size());i++){
         const int id=SHOP_GOODS[size_t(i)];
-        const int x=217,y=200+55*i;
+        const int x=217,y=200+45*i;
         if(i==w.shopSelection){
-            uiBox(r,float(x-13),float(y-8),526.f,52.f);
+            uiBox(r,float(x-13),float(y-8),526.f,43.f);
         }
-        itemIcon(r,art,id,float(x),float(y-3),41.f);
-        fillText(r,itemView(id).name,x+68,y+7,2,239,218,183);
-        fillText(r,std::to_string(SHOP_PRICES[size_t(i)])+" G",x+425,y+7,2,243,198,107);
+        itemIcon(r,art,id,float(x),float(y-3),34.f);
+        fillText(r,itemView(id).name,x+68,y+4,2,239,218,183);
+        fillText(r,std::to_string(SHOP_PRICES[size_t(i)])+" G",x+425,y+4,2,243,198,107);
     }
     fillText(r,w.shopFeedback.empty()?"MOUSE: CLICK TO BUY   X: CLOSE   UP/DOWN + E: BUY":w.shopFeedback,
              218,528,2,241,204,151);
