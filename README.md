@@ -1,3 +1,27 @@
+## Mouse-controlled sword combat and goblins
+
+The combat scene now uses **left mouse click** to turn toward the cursor and
+perform a 120-degree sword sweep in front of the character. **Space** remains
+available as a backup attack button. The sweep has a ~72px reach, a short
+cooldown/animation, and deals damage from the equipped weapon's ATK minus the
+goblin's DEF. One sword swing can hit more than one goblin in the arc.
+
+When struck, goblins flash, stagger, move backward and briefly display damage
+numbers. They now **telegraph a close-range hit for 0.46 seconds** with a
+visible warning and then have a recovery cooldown. Backing away from the
+attack radius during that warning avoids the hit; the player's existing armor
+DEF and short hurt invulnerability still apply.
+
+The scene loads `assets/goblin.png` as the goblin walk/strike atlas and
+`assets/sword_attack.png` as the sweeping sword effect. Both source sheets
+have a dark matte removed during loading. A procedural goblin and sword arc
+remain fallback visuals if the optional textures cannot be loaded.
+
+This first stage does not add stamina, dodge rolls, projectile weapons or a
+skill tree. Those will come after the mouse-attack and telegraphed melee
+combat feel good in play testing. `src/combat.h` isolates attack geometry
+and combat timing, with tests in `tests/game_tests.cpp`.
+
 ## Eight-direction hero walking (hero.png)
 
 The latest `assets/hero.png` uses an **8 × 10 sprite atlas** with a
