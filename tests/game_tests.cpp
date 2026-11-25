@@ -68,26 +68,27 @@ int main() {
     auto camera=village::camera({village::WORLD_W,village::WORLD_H});
     assert(camera.x == village::WORLD_W-WIDTH);
     assert(camera.y == village::WORLD_H-HEIGHT);
-    // Six-direction, twelve-frame hero atlas with south-facing diagonals.
-    assert(hero_anim::direction({0.f,1.f})==0);
-    assert(hero_anim::direction({-0.707f,0.707f})==1);
-    assert(hero_anim::direction({0.707f,0.707f})==2);
-    assert(hero_anim::direction({-1.f,0.f})==3);
-    assert(hero_anim::direction({1.f,0.f})==4);
-    assert(hero_anim::direction({0.f,-1.f})==5);
-    assert(hero_anim::direction({-0.707f,-0.707f})==5);
-    assert(hero_anim::direction({0.707f,-0.707f})==5);
+    // Eight distinct directions with a full 10-pose walking loop.
+    assert(hero_anim::DIRECTIONS==8 && hero_anim::FRAMES==10);
+    assert(hero_anim::direction({0.f,1.f})==0); // south
+    assert(hero_anim::direction({-0.707f,0.707f})==1); // SW
+    assert(hero_anim::direction({-1.f,0.f})==2); // west
+    assert(hero_anim::direction({-0.707f,-0.707f})==3); // NW
+    assert(hero_anim::direction({0.f,-1.f})==4); // north
+    assert(hero_anim::direction({0.707f,-0.707f})==5); // NE
+    assert(hero_anim::direction({1.f,0.f})==6); // east
+    assert(hero_anim::direction({0.707f,0.707f})==7); // SE
     assert(hero_anim::frame(0.f,true)==0);
-    assert(hero_anim::frame(0.5f,true)==6);
-    assert(hero_anim::frame(1.f,true)==0);
+    assert(hero_anim::frame(0.5f,true)==7);
+    assert(hero_anim::frame(1.f,true)==4);
     assert(hero_anim::frame(7.f,false)==0);
     for(int row=0;row<hero_anim::DIRECTIONS;row++)
         for(int frame=0;frame<hero_anim::FRAMES;frame++){
             const auto cell=hero_anim::crop(row,frame);
-            assert(cell.x>=hero_anim::LABEL_W && cell.y>=hero_anim::HEADER_H);
+            assert(cell.x>=0.f && cell.y>=0.f);
             assert(cell.w>0.f && cell.h>0.f);
-            assert(cell.x+cell.w<=hero_anim::SHEET_W);
-            assert(cell.y+cell.h<=hero_anim::GRID_BOTTOM);
+            assert(cell.x+cell.w<=1.f);
+            assert(cell.y+cell.h<=1.f);
         }
     // Starter gear should be weak and ordinary, and swapping gear must
     // immediately affect both incoming and outgoing combat damage.
