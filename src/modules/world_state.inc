@@ -171,7 +171,7 @@ struct ArtAssets {
     SDL_Texture* mother=nullptr;
     SDL_Texture* lily=nullptr;
     std::array<SDL_Texture*,54> familyFrames{};
-    std::array<SDL_Texture*,16> heroFrames{};
+    std::array<SDL_Texture*,6*12> heroFrames{}; // 6 directions x 12 walking poses
     std::array<SDL_Texture*,12> villageProps{};
     std::array<SDL_Texture*,12> fountainFrames{}; // legacy spring.png fallback (first frame only)
     SDL_Texture* fountainBase=nullptr;
