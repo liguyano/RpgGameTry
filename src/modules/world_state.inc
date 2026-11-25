@@ -2,7 +2,7 @@
 // Keep the relative include order when refactoring dependencies.
 struct Enemy {
     Vec2 pos;
-    int hp=3;
+    int hp=equipment::ENEMY_HEALTH;
     float attackTimer=0;
     float wobble=0;
 };
@@ -143,11 +143,12 @@ struct World {
     int shopSelection=0;
     std::string shopFeedback;
     int inventorySelection=0;
-    std::array<int,24> bag{{1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,0,0,0,0,0,0,0,0}};
-    std::array<int,6> equipped{{0,0,0,0,0,0}};
-    std::array<int,8> quickSlots{{1,7,8,9,0,0,0,0}};
+    // A new adventurer owns ordinary food, not a collection of rare gear.
+    std::array<int,24> bag{{15,16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
+    std::array<int,6> equipped{{0,0,0,18,0,0}}; // simple tunic: DEF +1
+    std::array<int,8> quickSlots{{15,16,0,0,0,0,0,0}};
     int quickSelected=0;
-    int gold=75;
+    int gold=18;
     Player hero;
     std::array<FamilyMotion,3> family{initialFamily(0),initialFamily(1),initialFamily(2)};
     std::array<VillagerMotion,VILLAGER_COUNT> villagers=initialVillagers();
