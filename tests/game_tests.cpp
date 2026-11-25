@@ -2,6 +2,7 @@
 #include "village_map.h"
 #include "shop_map.h"
 #include "equipment.h"
+#include "hero_animation.h"
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -67,6 +68,27 @@ int main() {
     auto camera=village::camera({village::WORLD_W,village::WORLD_H});
     assert(camera.x == village::WORLD_W-WIDTH);
     assert(camera.y == village::WORLD_H-HEIGHT);
+    // Six-direction, twelve-frame hero atlas with south-facing diagonals.
+    assert(hero_anim::direction({0.f,1.f})==0);
+    assert(hero_anim::direction({-0.707f,0.707f})==1);
+    assert(hero_anim::direction({0.707f,0.707f})==2);
+    assert(hero_anim::direction({-1.f,0.f})==3);
+    assert(hero_anim::direction({1.f,0.f})==4);
+    assert(hero_anim::direction({0.f,-1.f})==5);
+    assert(hero_anim::direction({-0.707f,-0.707f})==5);
+    assert(hero_anim::direction({0.707f,-0.707f})==5);
+    assert(hero_anim::frame(0.f,true)==0);
+    assert(hero_anim::frame(0.5f,true)==6);
+    assert(hero_anim::frame(1.f,true)==0);
+    assert(hero_anim::frame(7.f,false)==0);
+    for(int row=0;row<hero_anim::DIRECTIONS;row++)
+        for(int frame=0;frame<hero_anim::FRAMES;frame++){
+            const auto cell=hero_anim::crop(row,frame);
+            assert(cell.x>=hero_anim::LABEL_W && cell.y>=hero_anim::HEADER_H);
+            assert(cell.w>0.f && cell.h>0.f);
+            assert(cell.x+cell.w<=hero_anim::SHEET_W);
+            assert(cell.y+cell.h<=hero_anim::GRID_BOTTOM);
+        }
     // Starter gear should be weak and ordinary, and swapping gear must
     // immediately affect both incoming and outgoing combat damage.
     std::array<int,6> equipped{{0,0,0,18,0,0}};
