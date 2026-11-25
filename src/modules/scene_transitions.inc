@@ -53,9 +53,17 @@ PurchaseResult buyShopItem(World& w,int slot){
 
 void goOutskirts(World& w){
     w.scene=Scene::OUTSKIRTS;
-    w.hero.pos={138.f,355.f};
+    w.hero.pos=east_map::ENTRY;
     w.hero.facing={1.f,0.f};
     w.hero.moving=false;
+    w.dialogue.clear();
+}
+void returnToVillage(World& w){
+    w.scene=Scene::VILLAGE;
+    w.hero.pos=w.largeVillage?village::pos(1376.f,751.f):Vec2{780.f,345.f};
+    w.hero.facing={-1.f,0.f};
+    w.hero.moving=false;
+    w.won=false;
     w.dialogue.clear();
 }
 void beginBattle(World& w){
@@ -64,9 +72,9 @@ void beginBattle(World& w){
     w.hero.pos={430,450};
     w.enemies={
         {{740,319},equipment::ENEMY_HEALTH,0,0},{{600,291},equipment::ENEMY_HEALTH,0,1},
-        {{750,450},equipment::ENEMY_HEALTH,0,2},{{715,550},equipment::ENEMY_HEALTH,0,3},
-        {{645,420},equipment::ENEMY_HEALTH,0,4},{{820,390},equipment::ENEMY_HEALTH,0,5},
-        {{810,550},equipment::ENEMY_HEALTH,0,6},{{550,525},equipment::ENEMY_HEALTH,0,7}
+        {{750,450},equipment::ENEMY_HEALTH,0,2},{{705,500},equipment::ENEMY_HEALTH,0,3},
+        {{645,420},equipment::ENEMY_HEALTH,0,4},{{860,390},equipment::ENEMY_HEALTH,0,5},
+        {{867,475},equipment::ENEMY_HEALTH,0,6},{{550,510},equipment::ENEMY_HEALTH,0,7}
     };
     showDialogue(w,"HERO","GOBLINS! I HAVE TO PROTECT\nTHE ROAD TO ASHVALE!");
 }
@@ -113,7 +121,8 @@ void interact(World& w){
         w.story=std::max(w.story,8);
         goOutskirts(w);return;
     }
-    if(w.story==8 && withinRange(w.hero.pos,{782,285},90)){
+    if(w.story==8 && w.scene==Scene::OUTSKIRTS &&
+       withinRange(w.hero.pos,east_map::CAMP_TRIGGER,90)){
         beginBattle(w);return;
     }
     if(w.scene==Scene::HOME) {
@@ -172,7 +181,7 @@ void drawInteractPrompt(SDL_Renderer* r,const World& w){
         case 5:target=npcPosition(w,1);break;
         case 6:target=npcPosition(w,2);break;
         case 7:target=w.largeVillage?LARGE_VILLAGE_EXIT:Vec2{825,340};break;
-        case 8:target={782,285};break;
+        case 8:target=east_map::CAMP_TRIGGER;break;
     }
     if(w.scene==Scene::VILLAGE && w.largeVillage){
         Vec2 camera=village::camera(w.hero.pos);
