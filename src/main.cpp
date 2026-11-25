@@ -282,6 +282,11 @@ int main(int argc,char** argv){
             for(const auto& e:world.enemies)if(e.hp>0)
                 drawCombatGoblin(renderer,art,e);
         }
+        // Footstep dust/grass lives in world coordinates, so scroll it with
+        // the village camera rather than attaching it to the screen.
+        const Vec2 stepCamera=(world.scene==Scene::VILLAGE && world.largeVillage)
+            ? village::camera(world.hero.pos):Vec2{0.f,0.f};
+        drawFootstepParticles(renderer,world.steps,stepCamera);
         Vec2 heroScreen=world.hero.pos;
         if(world.scene==Scene::VILLAGE && world.largeVillage){
             Vec2 camera=village::camera(world.hero.pos);
