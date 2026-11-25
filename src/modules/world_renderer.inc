@@ -226,6 +226,77 @@ void drawEnemy(SDL_Renderer* r,const Enemy& e){
     rect(r,x-12,y-33,24,3,62,42,35);
     rect(r,x-12,y-33,static_cast<int>(24.f*std::max(0,e.hp)/float(equipment::ENEMY_HEALTH)),3,188,66,57);
 }
+// Sprite atlas: 8 columns (walk/attack) x 4 directions.
+// If goblin.png is missing, keep the existing procedural silhouette.
+void drawCombatGoblin(SDL_Renderer* r,const ArtAssets& art,const Enemy& e){
+    if(!art.goblinAtlas){drawEnemy(r,e);return;}
+    float atlasW=0.f,atlasH=0.f;
+    if(!SDL_GetTextureSize(art.goblinAtlas,&atlasW,&atlasH))return;
+    int row=0;
+    if(std::abs(e.facing.x)>std::abs(e.facing.y))
+        row=e.facing.x<0.f?1:2;
+    else if(e.facing.y<0.f)row=3;
+    const int pose=e.preparing?4+(int(e.windup*8.f)%3):
+                    e.stagger>0.f?7:(int(e.wobble*1.4f)%4);
+    const float cw=atlasW/8.f,ch=atlasH/4.f;
+    const SDL_FRect src{cw*float(pose)+cw*.04f,
+                       ch*float(row)+ch*.04f,cw*.92f,ch*.92f};
+    const float size=64.f;
+    const SDL_FRect dst{e.pos.x-size/2.f,e.pos.y-59.f,size,73.f};
+    if(e.flash>0.f)SDL_SetTextureColorMod(art.goblinAtlas,255,112,102);
+    SDL_RenderTexture(r,art.goblinAtlas,&src,&dst);
+    if(e.flash>0.f)SDL_SetTextureColorMod(art.goblinAtlas,255,255,255);
+    // HP bar and enemy attack warning are rendered over the actual sprite.
+    rect(r,int(e.pos.x)-20,int(e.pos.y)-66,40,5,55,31,31);
+    rect(r,int(e.pos.x)-20,int(e.pos.y)-66,
+         int(40.f*std::max(0,e.hp)/float(equipment::ENEMY_HEALTH)),
+         5,198,69,66);
+    if(e.preparing){
+        // Readable windup cue, including when the atlas does not depict it.
+        const int radius=int(20+8.f*(1.f-e.windup/combat::ENEMY_WINDUP));
+        color(r,248,96,65);
+        for(int i=0;i<28;i++){
+            const float a=2.f*combat::PI*float(i)/28.f;
+            SDL_RenderPoint(r,e.pos.x+float(radius)*std::cos(a),
+                             e.pos.y+float(radius)*std::sin(a));
+        }
+        fillText(r,"!",int(e.pos.x)-4,int(e.pos.y)-80,3,247,113,82);
+    }
+    if(e.floatDamage>0.f){
+        const int rise=int((.58f-e.floatDamage)*36.f);
+        fillText(r,std::to_string(e.damageNumber),
+                 int(e.pos.x)-7,int(e.pos.y)-92-rise,2,255,213,123);
+    }
+}
+// Render an animated sword sweep in the facing direction, after the hero.
+void drawSwordSwing(SDL_Renderer* r,const ArtAssets& art,
+                    Vec2 hero,Vec2 facing,float remaining){
+    if(remaining<=0.f)return;
+    const float angle=std::atan2(facing.y,facing.x);
+    // A lightweight procedural slash is always visible even if the supplied
+    // sword sprite sheet is missing or has a different animation layout.
+    SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_BLEND);
+    color(r,249,218,137,220);
+    const float phase=1.f-remaining/combat::SWING_DURATION;
+    for(int i=0;i<20;i++){
+        const float offset=(-.95f+1.9f*float(i)/19.f)+angle;
+        const float range=43.f+float(i%3);
+        SDL_RenderPoint(r,hero.x+std::cos(offset)*range,
+                         hero.y-15.f+std::sin(offset)*range);
+    }
+    SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_NONE);
+    if(!art.swordAtlas)return;
+    float w=0.f,h=0.f;
+    if(!SDL_GetTextureSize(art.swordAtlas,&w,&h))return;
+    const int pose=combat::slashFrame(remaining,4);
+    const SDL_FRect src{w*float(pose)/4.f,0.f,w/4.f,h/2.f};
+    // The source's right-facing sweep is rotated toward the attack vector.
+    const SDL_FRect dst{hero.x+facing.x*31.f-36.f,
+                        hero.y+facing.y*31.f-52.f,72.f,72.f};
+    SDL_RenderTextureRotated(r,art.swordAtlas,&src,&dst,
+                             double(angle*180.f/combat::PI),
+                             nullptr,SDL_FLIP_NONE);
+}
 void drawHud(SDL_Renderer* r,const World& w){
     // Persistent health bar is drawn separately in all scenes.
     fillText(r,"KNIGHT OF ASHVALE",23,14,2,231,202,135);
@@ -237,5 +308,5 @@ void drawHud(SDL_Renderer* r,const World& w){
              WIDTH-213,46,2,235,213,181);
     rect(r,9,HEIGHT-35,WIDTH-18,25,22,32,38);
     outline(r,9,HEIGHT-35,WIDTH-18,25,189,153,88);
-    fillText(r,"WASD MOVE   SPACE ATTACK   R RESTART   ESC QUIT",23,HEIGHT-28,2,231,209,168);
+    fillText(r,"WASD MOVE   LEFT CLICK ATTACK   SPACE ATTACK   ESC MENU",23,HEIGHT-28,2,231,209,168);
 }
