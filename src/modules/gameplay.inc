@@ -23,18 +23,25 @@ void exitShop(World& w);
 void enterHome(World& w);
 
 void attack(World& w){
-    if(w.story<9 || !w.dialogue.empty() || w.won || w.lost || w.hero.slashTimer>0) return;
-    w.hero.slashTimer=0.32f;
+    if(w.story<9 || w.scene!=Scene::OUTSKIRTS || !w.dialogue.empty() ||
+       w.won || w.lost || w.hero.slashTimer>0.f)return;
+    w.hero.slashTimer=combat::SWING_DURATION;
     for(auto& e:w.enemies){
-        Vec2 delta{e.pos.x-w.hero.pos.x,e.pos.y-w.hero.pos.y};
-        if(!withinRange(w.hero.pos,e.pos,66)) continue;
-        Vec2 d=normalized(delta);
-        if(e.hp>0 && d.x*w.hero.facing.x+d.y*w.hero.facing.y>=0.20f){
-            const int dealt=equipment::hitDamage(equipment::attack(w.equipped),
-                                                 equipment::ENEMY_DEFENSE);
-            e.hp=game::damage(e.hp,dealt);
-            if(e.hp==0)++w.hero.kills;
-        }
+        if(e.hp<=0 || !combat::swordHits(w.hero.pos,w.hero.facing,e.pos))continue;
+        const int dealt=equipment::hitDamage(equipment::attack(w.equipped),
+                                            equipment::ENEMY_DEFENSE);
+        e.hp=game::damage(e.hp,dealt);
+        e.damageNumber=dealt;
+        e.floatDamage=.58f;
+        e.flash=.24f;
+        e.stagger=combat::ENEMY_STAGGER;
+        e.preparing=false;
+        e.windup=0.f;
+        e.attackTimer=std::max(e.attackTimer,.35f);
+        const Vec2 push=combat::toward(w.hero.pos,e.pos);
+        e.pos.x=clamp(e.pos.x+push.x*20.f,24.f,float(WIDTH-24));
+        e.pos.y=clamp(e.pos.y+push.y*20.f,200.f,float(HEIGHT-24));
+        if(e.hp==0)++w.hero.kills;
     }
     if(w.hero.kills>=8)w.won=true;
 }
@@ -117,25 +124,41 @@ void update(World& w,const bool* keys,float dt){
             return;
         }
     }
-    if(w.story<9)return;
+    if(w.story<9 || w.scene!=Scene::OUTSKIRTS)return;
     for(auto& e:w.enemies){
         if(e.hp<=0)continue;
-        e.wobble+=dt*5;
+        e.wobble+=dt*5.f;
         e.attackTimer=std::max(0.f,e.attackTimer-dt);
-        Vec2 delta{w.hero.pos.x-e.pos.x,w.hero.pos.y-e.pos.y};
-        if(withinRange(w.hero.pos,e.pos,360) && !withinRange(w.hero.pos,e.pos,28)){
-            auto chase=normalized(delta);
+        e.stagger=std::max(0.f,e.stagger-dt);
+        e.flash=std::max(0.f,e.flash-dt);
+        e.floatDamage=std::max(0.f,e.floatDamage-dt);
+        const Vec2 chase=combat::toward(e.pos,w.hero.pos);
+        const float distance=std::sqrt(game::distanceSquared(e.pos,w.hero.pos));
+        if(distance>1.f)e.facing=chase;
+        if(e.stagger>0.f)continue;
+        if(e.preparing){
+            e.windup-=dt;
+            if(e.windup<=0.f){
+                e.preparing=false;
+                e.attackTimer=combat::ENEMY_RECOVERY;
+                // Attack commits at the end of the visible windup: dodging
+                // outside this radius avoids damage without an arbitrary roll.
+                if(distance<combat::ENEMY_ATTACK_RANGE && w.hero.hurtTimer<=0.f){
+                    w.hero.hp=game::damage(w.hero.hp,equipment::hitDamage(
+                        equipment::ENEMY_ATTACK,equipment::defense(w.equipped)));
+                    w.hero.hurtTimer=combat::HERO_INVULNERABILITY;
+                    if(w.hero.hp<=0)w.lost=true;
+                }
+            }
+            continue;
+        }
+        if(distance<combat::ENEMY_ATTACK_RANGE && e.attackTimer<=0.f){
+            e.preparing=true;
+            e.windup=combat::ENEMY_WINDUP;
+        }else if(distance<combat::ENEMY_NOTICE_DISTANCE &&
+                 distance>combat::ENEMY_ATTACK_RANGE-5.f){
             e.pos.x=clamp(e.pos.x+chase.x*ENEMY_SPEED*dt,20.f,float(WIDTH-20));
             e.pos.y=clamp(e.pos.y+chase.y*ENEMY_SPEED*dt,195.f,float(HEIGHT-20));
-        }
-        if(withinRange(w.hero.pos,e.pos,32) && e.attackTimer<=0){
-            e.attackTimer=1.15f;
-            if(w.hero.hurtTimer<=0){
-                w.hero.hp=damage(w.hero.hp,equipment::hitDamage(
-                    equipment::ENEMY_ATTACK,equipment::defense(w.equipped)));
-                w.hero.hurtTimer=0.55f;
-                if(w.hero.hp<=0)w.lost=true;
-            }
         }
     }
 }
