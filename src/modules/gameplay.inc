@@ -72,6 +72,7 @@ void update(World& w,const bool* keys,float dt){
     }else{
         w.hero.animationTime=0.f;
     }
+    const Vec2 previousFeet=w.hero.pos;
     if(dir.x!=0 || dir.y!=0){
         if(w.scene==Scene::HOME){
             w.hero.pos.x=clamp(w.hero.pos.x+dir.x*PLAYER_SPEED*dt,88.f,float(WIDTH-90));
@@ -86,6 +87,11 @@ void update(World& w,const bool* keys,float dt){
             else moveBody(w.hero.pos,{dir.x*PLAYER_SPEED,dir.y*PLAYER_SPEED},dt,11);
         }
     }
+    // Update lightweight footstep particles at the *actual* moved distance.
+    // No dust is created when blocked by collision, indoors, or standing still.
+    const int particleScene=w.scene==Scene::VILLAGE?1:
+                            w.scene==Scene::OUTSKIRTS?2:0;
+    footsteps::update(w.steps,particleScene,previousFeet,w.hero.pos,dt);
     // Walk through doorways without pressing E or finishing an NPC dialogue.
     // Directional triggers prevent bouncing straight back on scene entry.
     if(dir.x!=0.f || dir.y!=0.f){
