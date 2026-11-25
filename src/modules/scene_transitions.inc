@@ -84,7 +84,13 @@ void interact(World& w){
         w.story=1;showDialogue(w,"MOTHER","GOOD MORNING, ELIAN!\nYOUR FATHER HAS SOMETHING TO SAY.");return;
     }
     if(w.story==1 && withinRange(w.hero.pos,w.family[1].position,72)){
-        w.story=2;showDialogue(w,"FATHER","TAKE THIS OLD SWORD WHEN YOU GO.\nBUT SEE LILY BEFORE LEAVING.");return;
+        if(equipment::addToBag(w.bag,17)){
+            w.story=2;
+            showDialogue(w,"FATHER","TAKE THIS WORN SWORD. IT IS NOT MUCH, BUT IT MAY HELP.\nSEE LILY BEFORE LEAVING.");
+        }else{
+            showDialogue(w,"FATHER","YOUR BAG IS FULL. MAKE ROOM FOR THE OLD SWORD.");
+        }
+        return;
     }
     if(w.story==2 && withinRange(w.hero.pos,w.family[2].position,72)){
         w.story=3;showDialogue(w,"LILY","COME HOME BEFORE SUNSET!\nI MADE YOU A LUCKY CHARM.");return;
