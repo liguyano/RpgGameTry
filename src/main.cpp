@@ -4,6 +4,7 @@
 #include "equipment.h"
 #include "hero_animation.h"
 #include "combat.h"
+#include "east_battle_map.h"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #if RPG_HAS_SDL3_TTF
@@ -258,6 +259,20 @@ int main(int argc,char** argv){
         }else{
             if(art.outskirts)drawBackground(renderer,art.outskirts);
             else drawOutskirts(renderer,world.time);
+            if(world.showCollision){
+                color(renderer,247,116,73);
+                for(const auto& zone:east_map::SOLIDS){
+                    SDL_FRect bounds{zone.x,zone.y,zone.w,zone.h};
+                    SDL_RenderRect(renderer,&bounds);
+                }
+                color(renderer,91,215,255);
+                SDL_FRect river{18.f,112.f,154.f,439.f};
+                SDL_RenderRect(renderer,&river);
+                color(renderer,105,240,132);
+                SDL_FRect crossing{18.f,east_map::EXIT_Y_MIN,
+                                    154.f,east_map::EXIT_Y_MAX-east_map::EXIT_Y_MIN};
+                SDL_RenderRect(renderer,&crossing);
+            }
             for(const auto& e:world.enemies)if(e.hp>0)
                 drawCombatGoblin(renderer,art,e);
         }
