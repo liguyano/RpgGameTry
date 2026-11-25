@@ -92,6 +92,18 @@ int main() {
             assert(cell.x+cell.w<=1.f);
             assert(cell.y+cell.h<=1.f);
         }
+    // Rendering compensation for the two oversized hero animation rows.
+    assert(hero_anim::visualScale(0)==0.88f);
+    assert(hero_anim::visualScale(1)==0.95f);
+    for(int dir=2;dir<hero_anim::DIRECTIONS;dir++)
+        assert(hero_anim::visualScale(dir)==1.f);
+    // Resizing around the foot anchor must not move the player baseline.
+    for(int dir=0;dir<hero_anim::DIRECTIONS;dir++){
+        const float scale=hero_anim::visualScale(dir);
+        const float bottom=123.f+14.f;
+        const float drawY=bottom-78.f*scale;
+        assert(std::abs(drawY+78.f*scale-bottom)<.0001f);
+    }
     // The actual 1448x1086 PNG has unevenly spaced walking rows.
     // Cropping each row at imageHeight/8 cut off boots in the top rows.
     assert(hero_anim::SHEET_W==1448.f && hero_anim::SHEET_H==1086.f);
