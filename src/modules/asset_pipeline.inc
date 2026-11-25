@@ -78,10 +78,9 @@ SDL_Texture* loadNewFountainAnimation(SDL_Renderer* renderer){
 // The supplied sheet is a labeled concept sheet rather than a transparent atlas,
 // so the dark sheet background is removed during one-time loading.
 
-// The generated hero.png is a 1536x1024 labeled concept sheet, not a conventional
-// transparent spritesheet. Each row has 4 walking poses facing down/left/right/up.
-// Extract only each character silhouette and flood-fill the connected dark backdrop
-// from the frame border so that dark outlines INSIDE the hero are not erased.
+// assets/hero.png is now a white-backed, labelled 6-row x 12-column
+// walking atlas. Direction labels occupy the left margin and numbers the
+// upper margin; crop only the cells, remove white, then cache 72 textures.
 void loadHeroFrames(SDL_Renderer* r,ArtAssets& art){
 #if RPG_HAS_SDL3_IMAGE
     namespace fs=std::filesystem;
@@ -94,85 +93,72 @@ void loadHeroFrames(SDL_Renderer* r,ArtAssets& art){
     if(sheetPath.empty()){std::cerr<<"hero.png not found; using procedural player\n";return;}
     SDL_Surface* sheet=IMG_Load(sheetPath.string().c_str());
     if(!sheet){std::cerr<<"Cannot load hero.png: "<<SDL_GetError()<<"\n";return;}
-    // Positions measured on the original art sheet (1536x1024).
-    constexpr int cx[4]={321,523,728,930};
-    constexpr int top[4]={19,266,512,759};
-    constexpr int baseWidth=152,baseHeight=218;
-    const float sx=float(sheet->w)/1536.f,sy=float(sheet->h)/1024.f;
-    for(int dir=0;dir<4;dir++)for(int pose=0;pose<4;pose++){
-        const int frameW=std::max(1,int(baseWidth*sx));
-        const int frameH=std::max(1,int(baseHeight*sy));
-        const int left=int(cx[pose]*sx)-frameW/2;
-        const int upper=int(top[dir]*sy);
-        if(left<0||upper<0||left+frameW>sheet->w||upper+frameH>sheet->h)continue;
-        SDL_Surface* cropped=SDL_CreateSurface(frameW,frameH,SDL_PIXELFORMAT_RGBA32);
-        if(!cropped)continue;
-        SDL_Rect region{left,upper,frameW,frameH};
-        if(SDL_BlitSurface(sheet,&region,cropped,nullptr)){
-            const size_t count=size_t(frameW)*size_t(frameH);
-            std::vector<Uint8> seen(count,0);
-            std::vector<int> queue;
-            queue.reserve(count);
-            // The sheet's actual matte is almost uniform charcoal
-            // (approximately RGB 20,21,27). Never use a broad brightness
-            // threshold: the hero's blue clothes and dark hair would disappear.
-            Uint8 matteR=20,matteG=21,matteB=27,matteA=255;
-            SDL_ReadSurfacePixel(cropped,3,3,&matteR,&matteG,&matteB,&matteA);
-            auto candidate=[&](int x,int y){
-                Uint8 red=0,green=0,blue=0,alpha=255;
-                if(!SDL_ReadSurfacePixel(cropped,x,y,&red,&green,&blue,&alpha))return false;
-                constexpr int tolerance=18;
-                return alpha<20 ||
-                    (std::abs(int(red)-int(matteR))<tolerance &&
-                     std::abs(int(green)-int(matteG))<tolerance &&
-                     std::abs(int(blue)-int(matteB))<tolerance);
+    int loaded=0;
+    const float scaleX=float(sheet->w)/hero_anim::SHEET_W;
+    const float scaleY=float(sheet->h)/hero_anim::SHEET_H;
+    for(int dir=0;dir<hero_anim::DIRECTIONS;dir++){
+        for(int pose=0;pose<hero_anim::FRAMES;pose++){
+            const auto target=hero_anim::crop(dir,pose);
+            const SDL_Rect src{
+                int(std::round(target.x*scaleX)),
+                int(std::round(target.y*scaleY)),
+                std::max(1,int(std::round(target.w*scaleX))),
+                std::max(1,int(std::round(target.h*scaleY)))
             };
-            auto enqueue=[&](int x,int y){
-                if(x<0||y<0||x>=frameW||y>=frameH)return;
-                size_t index=size_t(y)*size_t(frameW)+size_t(x);
-                if(seen[index] || !candidate(x,y))return;
-                seen[index]=1;
-                queue.push_back(int(index));
-            };
-            for(int x=0;x<frameW;x++){enqueue(x,0);enqueue(x,frameH-1);}
-            for(int y=0;y<frameH;y++){enqueue(0,y);enqueue(frameW-1,y);}
-            for(size_t head=0;head<queue.size();head++){
-                int k=queue[head],x=k%frameW,y=k/frameW;
-                SDL_WriteSurfacePixel(cropped,x,y,0,0,0,0);
-                enqueue(x-1,y);enqueue(x+1,y);enqueue(x,y-1);enqueue(x,y+1);
+            if(src.x<0||src.y<0||src.x+src.w>sheet->w||
+               src.y+src.h>sheet->h)continue;
+            SDL_Surface* cropped=SDL_CreateSurface(src.w,src.h,SDL_PIXELFORMAT_RGBA32);
+            if(!cropped)continue;
+            if(SDL_BlitSurface(sheet,&src,cropped,nullptr)){
+                for(int y=0;y<cropped->h;y++)for(int x=0;x<cropped->w;x++){
+                    Uint8 red=0,green=0,blue=0,alpha=255;
+                    if(!SDL_ReadSurfacePixel(cropped,x,y,&red,&green,&blue,&alpha))continue;
+                    const int low=std::min({int(red),int(green),int(blue)});
+                    const int high=std::max({int(red),int(green),int(blue)});
+                    // White and neutral near-white belong to the background.
+                    // Preserve skin, silver armor, hair and the red scarf.
+                    if(low>231 && high-low<26){
+                        SDL_WriteSurfacePixel(cropped,x,y,0,0,0,0);
+                    }else if(low>208 && high-low<23){
+                        const Uint8 softened=Uint8(std::max(0,231-low)*255/23);
+                        SDL_WriteSurfacePixel(cropped,x,y,red,green,blue,
+                                              Uint8(int(alpha)*int(softened)/255));
+                    }
+                }
+                SDL_Texture* texture=SDL_CreateTextureFromSurface(r,cropped);
+                if(texture){
+                    SDL_SetTextureScaleMode(texture,SDL_SCALEMODE_NEAREST);
+                    SDL_SetTextureBlendMode(texture,SDL_BLENDMODE_BLEND);
+                    art.heroFrames[size_t(dir)*hero_anim::FRAMES+size_t(pose)]=texture;
+                    ++loaded;
+                }
             }
-            SDL_Texture* tex=SDL_CreateTextureFromSurface(r,cropped);
-            if(tex){
-                SDL_SetTextureScaleMode(tex,SDL_SCALEMODE_NEAREST);
-                SDL_SetTextureBlendMode(tex,SDL_BLENDMODE_BLEND);
-                art.heroFrames[size_t(dir)*4+size_t(pose)]=tex;
-            }
+            SDL_DestroySurface(cropped);
         }
-        SDL_DestroySurface(cropped);
     }
     SDL_DestroySurface(sheet);
-    std::cerr<<"Loaded hero.png directional animation frames\n";
+    std::cerr<<"Loaded hero.png 6 directions x 12 frames: "<<loaded<<"/72\n";
 #else
     (void)r;(void)art;
 #endif
 }
 int facingSpriteDirection(Vec2 facing){
+    // Legacy four-way lookup is still used by family portraits and villagers.
     if(std::abs(facing.x)>std::abs(facing.y))return facing.x<0.f?1:2;
     return facing.y<0.f?3:0;
 }
 bool drawAnimatedHero(SDL_Renderer* r,const ArtAssets& art,
                       Vec2 position,Vec2 facing,bool moving,float animTime){
-    const int direction=facingSpriteDirection(facing);
-    const int frame=moving?int(animTime*7.5f)%4:0;
-    SDL_Texture* tex=art.heroFrames[size_t(direction)*4+size_t(frame)];
-    if(!tex)tex=art.heroFrames[size_t(direction)*4];
-    if(!tex)return false;
-    // Align bottom of sprite to character feet; preserve all four facing poses.
-    SDL_FRect dst{position.x-26.f,position.y-63.f,52.f,78.f};
-    SDL_RenderTexture(r,tex,nullptr,&dst);
+    const int direction=hero_anim::direction(facing);
+    const int frame=hero_anim::frame(animTime,moving);
+    SDL_Texture* texture=art.heroFrames[size_t(direction)*hero_anim::FRAMES+size_t(frame)];
+    if(!texture)texture=art.heroFrames[size_t(direction)*hero_anim::FRAMES];
+    if(!texture)return false;
+    // Sprite feet align with the character's gameplay position.
+    SDL_FRect dst{position.x-26.f,position.y-64.f,52.f,78.f};
+    SDL_RenderTexture(r,texture,nullptr,&dst);
     return true;
 }
-
 
 // Decorations are separate from the ground layer. "houseAndTree.png" is a
 // presentation sheet, so these are individual approximated source rectangles.
