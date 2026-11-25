@@ -1,6 +1,7 @@
 #include "game_logic.h"
 #include "village_map.h"
 #include "shop_map.h"
+#include "equipment.h"
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -66,6 +67,32 @@ int main() {
     auto camera=village::camera({village::WORLD_W,village::WORLD_H});
     assert(camera.x == village::WORLD_W-WIDTH);
     assert(camera.y == village::WORLD_H-HEIGHT);
+    // Starter gear should be weak and ordinary, and swapping gear must
+    // immediately affect both incoming and outgoing combat damage.
+    std::array<int,6> equipped{{0,0,0,18,0,0}};
+    std::array<int,24> bag{};
+    bag[0]=17; // worn sword from father
+    assert(equipment::attack(equipped)==2);
+    assert(equipment::defense(equipped)==1);
+    assert(equipment::hitDamage(equipment::ENEMY_ATTACK,equipment::defense(equipped))==13);
+    assert(equipment::equip(bag,equipped,0));
+    assert(equipped[0]==17 && bag[0]==0);
+    assert(equipment::attack(equipped)==5);
+    assert(equipment::hitDamage(equipment::attack(equipped),equipment::ENEMY_DEFENSE)==4);
+    bag[1]=1; // iron sword replaces the worn sword
+    assert(equipment::equip(bag,equipped,1));
+    assert(equipped[0]==1 && bag[1]==17);
+    assert(equipment::attack(equipped)==10);
+    bag[2]=7; // chain armor replaces the tunic
+    assert(equipment::equip(bag,equipped,2));
+    assert(equipped[3]==7 && bag[2]==18);
+    assert(equipment::defense(equipped)==6);
+    assert(equipment::hitDamage(equipment::ENEMY_ATTACK,equipment::defense(equipped))==8);
+    assert(equipment::hitDamage(2,100)==1); // minimum 1 damage
+    assert(!equipment::equip(bag,equipped,23)); // no equipping empty slots
+    assert(equipment::addToBag(bag,12));
+    assert(!equipment::addToBag(bag,0));
+    assert(equipment::item(17).attack==3 && equipment::item(18).defense==1);
     // General store entrance, walkable aisle, walls, and furniture collisions.
     assert(!shop::collides(shop::ARRIVAL));
     assert(shop::nearDoor(shop::ENTRANCE));
