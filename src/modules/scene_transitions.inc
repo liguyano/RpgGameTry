@@ -62,10 +62,10 @@ void beginBattle(World& w){
     w.hero.hp=100;
     w.hero.pos={430,450};
     w.enemies={
-        {{740,319},3,0,0},{{600,291},3,0,1},
-        {{750,450},3,0,2},{{715,550},3,0,3},
-        {{645,420},3,0,4},{{820,390},3,0,5},
-        {{810,550},3,0,6},{{550,525},3,0,7}
+        {{740,319},equipment::ENEMY_HEALTH,0,0},{{600,291},equipment::ENEMY_HEALTH,0,1},
+        {{750,450},equipment::ENEMY_HEALTH,0,2},{{715,550},equipment::ENEMY_HEALTH,0,3},
+        {{645,420},equipment::ENEMY_HEALTH,0,4},{{820,390},equipment::ENEMY_HEALTH,0,5},
+        {{810,550},equipment::ENEMY_HEALTH,0,6},{{550,525},equipment::ENEMY_HEALTH,0,7}
     };
     showDialogue(w,"HERO","GOBLINS! I HAVE TO PROTECT\nTHE ROAD TO ASHVALE!");
 }
