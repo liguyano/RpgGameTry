@@ -34,8 +34,9 @@ void exitShop(World& w){
     w.hero.moving=false;
     w.dialogue.clear();
 }
-inline constexpr std::array<int,6> SHOP_GOODS{{12,14,15,16,5,8}};
-inline constexpr std::array<int,6> SHOP_PRICES{{22,8,6,5,54,36}};
+// Affordable starter gear and an expensive early upgrade.
+inline constexpr std::array<int,7> SHOP_GOODS{{12,14,15,16,17,18,1}};
+inline constexpr std::array<int,7> SHOP_PRICES{{22,8,6,5,14,12,80}};
 enum class PurchaseResult {BOUGHT,NO_GOLD,BAG_FULL,INVALID};
 PurchaseResult buyShopItem(World& w,int slot){
     if(slot<0||slot>=int(SHOP_GOODS.size()))return PurchaseResult::INVALID;
