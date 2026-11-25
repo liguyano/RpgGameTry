@@ -44,6 +44,14 @@ inline int direction(game::Vec2 facing){
     if(x>0.f)return 6;            // E
     return y<0.f?4:0;
 }
+// The artwork itself has uneven hero silhouette heights, even after its
+// cells have been cropped to equal-sized transparent canvases. Measured on
+// the 1448x1086 sheet, south averages ~137 source pixels, south-west ~126,
+// versus ~112-124 for the remaining directions. Only compensate these two
+// rows; anchor the resized destination at the original sprite's feet.
+inline constexpr float visualScale(int direction){
+    return direction==0?0.88f:(direction==1?0.95f:1.f);
+}
 inline int frame(float seconds,bool moving){
     if(!moving)return 0;
     return static_cast<int>(std::floor(std::max(0.f,seconds)*FPS))%FRAMES;
