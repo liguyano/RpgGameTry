@@ -29,9 +29,11 @@ void attack(World& w){
         Vec2 delta{e.pos.x-w.hero.pos.x,e.pos.y-w.hero.pos.y};
         if(!withinRange(w.hero.pos,e.pos,66)) continue;
         Vec2 d=normalized(delta);
-        if(d.x*w.hero.facing.x+d.y*w.hero.facing.y>=0.20f){
-            --e.hp;
-            if(e.hp<=0)++w.hero.kills;
+        if(e.hp>0 && d.x*w.hero.facing.x+d.y*w.hero.facing.y>=0.20f){
+            const int dealt=equipment::hitDamage(equipment::attack(w.equipped),
+                                                 equipment::ENEMY_DEFENSE);
+            e.hp=game::damage(e.hp,dealt);
+            if(e.hp==0)++w.hero.kills;
         }
     }
     if(w.hero.kills>=8)w.won=true;
@@ -129,7 +131,8 @@ void update(World& w,const bool* keys,float dt){
         if(withinRange(w.hero.pos,e.pos,32) && e.attackTimer<=0){
             e.attackTimer=1.15f;
             if(w.hero.hurtTimer<=0){
-                w.hero.hp=damage(w.hero.hp,12);
+                w.hero.hp=damage(w.hero.hp,equipment::hitDamage(
+                    equipment::ENEMY_ATTACK,equipment::defense(w.equipped)));
                 w.hero.hurtTimer=0.55f;
                 if(w.hero.hp<=0)w.lost=true;
             }
