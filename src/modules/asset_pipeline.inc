@@ -195,8 +195,14 @@ bool drawAnimatedHero(SDL_Renderer* r,const ArtAssets& art,
     SDL_Texture* texture=art.heroFrames[size_t(direction)*hero_anim::FRAMES+size_t(frame)];
     if(!texture)texture=art.heroFrames[size_t(direction)*hero_anim::FRAMES];
     if(!texture)return false;
-    // Sprite feet align with the character's gameplay position.
-    SDL_FRect dst{position.x-26.f,position.y-64.f,52.f,78.f};
+    // The south and south-west drawings are physically larger in the
+    // original art. Scale them around the same foot anchor as all other
+    // directions; don't change the player's collision/body position.
+    constexpr float width=52.f,height=78.f;
+    const float scale=hero_anim::visualScale(direction);
+    const float bottom=position.y+14.f;
+    const float w=width*scale,h=height*scale;
+    const SDL_FRect dst{position.x-w*.5f,bottom-h,w,h};
     SDL_RenderTexture(r,texture,nullptr,&dst);
     return true;
 }
