@@ -5,6 +5,7 @@
 #include "hero_animation.h"
 #include "combat.h"
 #include "east_battle_map.h"
+#include "footstep_particles.h"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #if RPG_HAS_SDL3_TTF
