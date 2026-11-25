@@ -29,7 +29,7 @@ inline bool isBridge(game::Vec2 p){
 inline bool blocked(game::Vec2 p,float radius=10.f){
     if(p.x-radius<18.f||p.x+radius>942.f||
        p.y-radius<105.f||p.y+radius>558.f)return true;
-    if(p.x-radius<172.f && !isBridge(p))return true;
+    if(p.x<174.f && !isBridge(p))return true;
     for(const auto& r:SOLIDS){
         const float nearestX=game::clamp(p.x,r.x,r.x+r.w);
         const float nearestY=game::clamp(p.y,r.y,r.y+r.h);
