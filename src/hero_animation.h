@@ -4,42 +4,39 @@
 #include <cmath>
 
 namespace hero_anim {
-// Rows in assets/hero.png: down, south-west, south-east, west, east, north.
-// The sheet deliberately has no north-west or north-east row.
-constexpr int DIRECTIONS=6;
-constexpr int FRAMES=12;
-constexpr float FPS=12.f;
-constexpr float SHEET_W=1536.f;
-constexpr float SHEET_H=1024.f;
-constexpr float LABEL_W=156.f;
-constexpr float HEADER_H=46.f;
-constexpr float GRID_BOTTOM=986.f;
+// Exact layout of the current hero.png: 8 direction rows, 10 poses per row,
+// no title/label margins. Row order is clockwise from South toward South-East.
+constexpr int DIRECTIONS=8;
+constexpr int FRAMES=10;
+constexpr float FPS=14.f;
+// Coordinates normalized to the complete image, so cropping works at any PNG size.
 struct Crop {float x,y,w,h;};
 inline int direction(game::Vec2 facing){
-    if(facing.y>0.25f){
-        if(facing.x<-.25f)return 1;
-        if(facing.x>.25f)return 2;
-        return 0;
+    constexpr float diagonal=0.30f;
+    const float x=facing.x,y=facing.y;
+    if(y>diagonal){
+        if(x< -diagonal)return 1;  // SW
+        if(x> diagonal)return 7;   // SE
+        return 0;                   // S
     }
-    if(facing.y<-.25f){
-        // Upper diagonals share the north row, since the sheet has six rows.
-        if(std::abs(facing.x)<.85f)return 5;
+    if(y< -diagonal){
+        if(x< -diagonal)return 3;  // NW
+        if(x> diagonal)return 5;   // NE
+        return 4;                   // N
     }
-    if(facing.x<-.25f)return 3;
-    if(facing.x>.25f)return 4;
-    return facing.y<0.f?5:0;
+    if(x<0.f)return 2;             // W
+    if(x>0.f)return 6;             // E
+    return y<0.f?4:0;
 }
-inline int frame(float animationSeconds,bool moving){
+inline int frame(float seconds,bool moving){
     if(!moving)return 0;
-    return static_cast<int>(std::floor(std::max(0.f,animationSeconds)*FPS))%FRAMES;
+    return static_cast<int>(std::floor(std::max(0.f,seconds)*FPS))%FRAMES;
 }
 inline Crop crop(int row,int pose){
-    const float cellW=(SHEET_W-LABEL_W)/FRAMES;
-    const float cellH=(GRID_BOTTOM-HEADER_H)/DIRECTIONS;
-    // Use a slightly inset crop to exclude dark divider lines from the atlas.
-    constexpr float insetX=3.f,insetY=3.f;
-    return {LABEL_W+pose*cellW+insetX,
-            HEADER_H+row*cellH+insetY,
-            cellW-2.f*insetX,cellH-2.f*insetY};
+    const float cellW=1.f/float(FRAMES),cellH=1.f/float(DIRECTIONS);
+    // Slightly inset the edges to avoid including any inter-cell grid seam.
+    constexpr float marginX=0.001f,marginY=0.001f;
+    return {float(pose)*cellW+marginX,float(row)*cellH+marginY,
+            cellW-2.f*marginX,cellH-2.f*marginY};
 }
 } // namespace hero_anim
