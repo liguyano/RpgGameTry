@@ -4,6 +4,7 @@
 #include "equipment.h"
 #include "hero_animation.h"
 #include "combat.h"
+#include "east_battle_map.h"
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -123,6 +124,31 @@ int main() {
     assert(combat::ENEMY_WINDUP>.3f);
     assert(combat::ENEMY_RECOVERY>combat::ENEMY_WINDUP);
     assert(combat::ENEMY_STAGGER>0.f);
+    // Eastern battle map: the left wooden crossing is actually traversable.
+    assert(!east_map::blocked(east_map::ENTRY));
+    assert(!east_map::blocked(east_map::CAMP_TRIGGER));
+    assert(east_map::blocked({120.f,275.f})); // river outside bridge
+    assert(east_map::blocked({442.f,392.f})); // central boulder
+    assert(east_map::blocked({610.f,510.f})); // bottom rocks
+    assert(!east_map::blocked({610.f,290.f})); // combat clearing
+    for(int x=35;x<=195;x+=5)
+        assert(!east_map::blocked({float(x),381.f}));
+    game::Vec2 crossingBattle{194.f,381.f};
+    east_map::move(crossingBattle,{-155.f,0.f},1.f,10.f);
+    assert(east_map::atVillageExit(crossingBattle));
+    for(const game::Vec2 spawn:{
+        game::Vec2{430.f,450.f},game::Vec2{740.f,319.f},
+        game::Vec2{600.f,291.f},game::Vec2{750.f,450.f},
+        game::Vec2{705.f,500.f},game::Vec2{645.f,420.f},
+        game::Vec2{860.f,390.f},game::Vec2{867.f,475.f},
+        game::Vec2{550.f,510.f}})
+        assert(!east_map::blocked(spawn));
+    // Colliding with the boulder blocks the movement without tunnelling.
+    game::Vec2 battleWalker{350.f,390.f};
+    east_map::move(battleWalker,{160.f,0.f},1.f);
+    assert(!east_map::blocked(battleWalker));
+    assert(battleWalker.x<400.f);
+
     // Starter gear should be weak and ordinary, and swapping gear must
     // immediately affect both incoming and outgoing combat damage.
     std::array<int,6> equipped{{0,0,0,18,0,0}};
