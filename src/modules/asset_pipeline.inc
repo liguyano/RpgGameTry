@@ -78,66 +78,67 @@ SDL_Texture* loadNewFountainAnimation(SDL_Renderer* renderer){
 // The supplied sheet is a labeled concept sheet rather than a transparent atlas,
 // so the dark sheet background is removed during one-time loading.
 
-// assets/hero.png is now a white-backed, labelled 6-row x 12-column
-// walking atlas. Direction labels occupy the left margin and numbers the
-// upper margin; crop only the cells, remove white, then cache 72 textures.
+// 8 directions x 10 walking poses in hero.png. The new atlas has no
+// printed row/column headers; each frame occupies one equal grid cell.
+// Convert the white matte to transparent pixels at load time (one-time).
 void loadHeroFrames(SDL_Renderer* r,ArtAssets& art){
 #if RPG_HAS_SDL3_IMAGE
     namespace fs=std::filesystem;
     fs::path sheetPath;
-    for(const fs::path& path:{fs::path("assets/hero.png"),
-                              fs::path("../assets/hero.png"),
-                              fs::path("../../assets/hero.png")}){
-        if(fs::exists(path)){sheetPath=path;break;}
+    for(const fs::path& candidate:{fs::path("assets/hero.png"),
+                                   fs::path("../assets/hero.png"),
+                                   fs::path("../../assets/hero.png")}){
+        if(fs::exists(candidate)){sheetPath=candidate;break;}
     }
-    if(sheetPath.empty()){std::cerr<<"hero.png not found; using procedural player\n";return;}
+    if(sheetPath.empty()){
+        std::cerr<<"hero.png missing; using fallback hero\n";
+        return;
+    }
     SDL_Surface* sheet=IMG_Load(sheetPath.string().c_str());
-    if(!sheet){std::cerr<<"Cannot load hero.png: "<<SDL_GetError()<<"\n";return;}
+    if(!sheet){
+        std::cerr<<"hero.png loading failed: "<<SDL_GetError()<<"\n";
+        return;
+    }
     int loaded=0;
-    const float scaleX=float(sheet->w)/hero_anim::SHEET_W;
-    const float scaleY=float(sheet->h)/hero_anim::SHEET_H;
-    for(int dir=0;dir<hero_anim::DIRECTIONS;dir++){
-        for(int pose=0;pose<hero_anim::FRAMES;pose++){
-            const auto target=hero_anim::crop(dir,pose);
-            const SDL_Rect src{
-                int(std::round(target.x*scaleX)),
-                int(std::round(target.y*scaleY)),
-                std::max(1,int(std::round(target.w*scaleX))),
-                std::max(1,int(std::round(target.h*scaleY)))
-            };
+    for(int row=0;row<hero_anim::DIRECTIONS;row++){
+        for(int frame=0;frame<hero_anim::FRAMES;frame++){
+            const auto cell=hero_anim::crop(row,frame);
+            const int left=int(std::round(cell.x*sheet->w));
+            const int top=int(std::round(cell.y*sheet->h));
+            const int width=std::max(1,int(std::round(cell.w*sheet->w)));
+            const int height=std::max(1,int(std::round(cell.h*sheet->h)));
+            SDL_Rect src{left,top,width,height};
             if(src.x<0||src.y<0||src.x+src.w>sheet->w||
                src.y+src.h>sheet->h)continue;
-            SDL_Surface* cropped=SDL_CreateSurface(src.w,src.h,SDL_PIXELFORMAT_RGBA32);
-            if(!cropped)continue;
-            if(SDL_BlitSurface(sheet,&src,cropped,nullptr)){
-                for(int y=0;y<cropped->h;y++)for(int x=0;x<cropped->w;x++){
+            SDL_Surface* frameSurface=SDL_CreateSurface(width,height,SDL_PIXELFORMAT_RGBA32);
+            if(!frameSurface)continue;
+            if(SDL_BlitSurface(sheet,&src,frameSurface,nullptr)){
+                for(int y=0;y<height;y++)for(int x=0;x<width;x++){
                     Uint8 red=0,green=0,blue=0,alpha=255;
-                    if(!SDL_ReadSurfacePixel(cropped,x,y,&red,&green,&blue,&alpha))continue;
+                    if(!SDL_ReadSurfacePixel(frameSurface,x,y,&red,&green,&blue,&alpha))
+                        continue;
                     const int low=std::min({int(red),int(green),int(blue)});
                     const int high=std::max({int(red),int(green),int(blue)});
-                    // White and neutral near-white belong to the background.
-                    // Preserve skin, silver armor, hair and the red scarf.
-                    if(low>231 && high-low<26){
-                        SDL_WriteSurfacePixel(cropped,x,y,0,0,0,0);
-                    }else if(low>208 && high-low<23){
-                        const Uint8 softened=Uint8(std::max(0,231-low)*255/23);
-                        SDL_WriteSurfacePixel(cropped,x,y,red,green,blue,
-                                              Uint8(int(alpha)*int(softened)/255));
+                    // This is pixel art: don't create translucent white
+                    // fringe pixels. Neutral white/near-white is fully clear.
+                    // Colored highlights on the character are preserved.
+                    if(alpha<15 || (low>224 && high-low<22)){
+                        SDL_WriteSurfacePixel(frameSurface,x,y,0,0,0,0);
                     }
                 }
-                SDL_Texture* texture=SDL_CreateTextureFromSurface(r,cropped);
+                SDL_Texture* texture=SDL_CreateTextureFromSurface(r,frameSurface);
                 if(texture){
                     SDL_SetTextureScaleMode(texture,SDL_SCALEMODE_NEAREST);
                     SDL_SetTextureBlendMode(texture,SDL_BLENDMODE_BLEND);
-                    art.heroFrames[size_t(dir)*hero_anim::FRAMES+size_t(pose)]=texture;
-                    ++loaded;
+                    art.heroFrames[size_t(row)*hero_anim::FRAMES+size_t(frame)]=texture;
+                    loaded++;
                 }
             }
-            SDL_DestroySurface(cropped);
+            SDL_DestroySurface(frameSurface);
         }
     }
     SDL_DestroySurface(sheet);
-    std::cerr<<"Loaded hero.png 6 directions x 12 frames: "<<loaded<<"/72\n";
+    std::cerr<<"Hero 8 directions x 10 frames: "<<loaded<<"/80 loaded\n";
 #else
     (void)r;(void)art;
 #endif
