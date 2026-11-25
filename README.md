@@ -1,3 +1,24 @@
+## Village eastern wilderness: new battle map
+
+The image `assets/gablingather.png` now replaces the old outskirts BMP
+as the **eastern forest battle background**, fitted to the game's 960×640
+logical viewport. Goblins, weapon effects, and the hero remain separate
+sprites, not part of the background. The BMP is kept as a fallback if the
+PNG cannot be loaded.
+
+`src/east_battle_map.h` defines the initial walkable clearing, stone
+obstacles, river, forest boundaries and the **left bridge** passage. Hero
+movement, goblin pursuit and sword knockback use the same collision logic.
+Press **F3** to inspect approximate terrain boundaries during play. These
+obstacles are an initial gameplay approximation of the illustrated artwork
+and may need visual tuning after an in-game screenshot.
+
+From the village, follow the east bridge to enter the clearing; walk
+left along the clearing's bridge to return. Near the far eastern path,
+**E** starts the existing goblin encounter. When all eight are defeated,
+press **E** on the victory screen to return to the village while preserving
+inventory, equipment, gold and quest progress. **R** still restarts.
+
 ## Mouse-controlled sword combat and goblins
 
 The combat scene now uses **left mouse click** to turn toward the cursor and
