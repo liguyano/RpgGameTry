@@ -103,6 +103,11 @@ int main(int argc,char** argv){
                 }
             }
             if(ev.type==SDL_EVENT_KEY_DOWN && ev.key.repeat==0){
+                if(world.won && world.scene==Scene::OUTSKIRTS &&
+                   ev.key.key==SDLK_E){
+                    returnToVillage(world);
+                    continue;
+                }
                 if(world.shopMenu){
                     if(ev.key.key==SDLK_ESCAPE || ev.key.key==SDLK_B){
                         world.shopMenu=false;
