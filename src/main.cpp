@@ -1,6 +1,7 @@
 #include "game_logic.h"
 #include "village_map.h"
 #include "shop_map.h"
+#include "equipment.h"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #if RPG_HAS_SDL3_TTF
