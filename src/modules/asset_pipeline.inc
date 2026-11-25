@@ -729,7 +729,9 @@ ArtAssets loadArtAssets(SDL_Renderer* renderer){
     result.expandedVillage=(result.village!=nullptr);
 #endif
     if(!result.village)result.village=loadArt(renderer,"village.bmp");
-    result.outskirts=loadArt(renderer,"outskirts.bmp");
+    // Eastern battle clearing: single empty map with separately rendered goblins.
+    result.outskirts=loadArt(renderer,"gablingather.png");
+    if(!result.outskirts)result.outskirts=loadArt(renderer,"outskirts.bmp");
     result.hero=loadArt(renderer,"hero.bmp");
     result.father=loadArt(renderer,"father.bmp");
     result.mother=loadArt(renderer,"mother.bmp");
