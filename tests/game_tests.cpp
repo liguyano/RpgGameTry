@@ -90,6 +90,27 @@ int main() {
             assert(cell.x+cell.w<=1.f);
             assert(cell.y+cell.h<=1.f);
         }
+    // The actual 1448x1086 PNG has unevenly spaced walking rows.
+    // Cropping each row at imageHeight/8 cut off boots in the top rows.
+    assert(hero_anim::SHEET_W==1448.f && hero_anim::SHEET_H==1086.f);
+    assert(hero_anim::ROWS[0].last==154);
+    assert(hero_anim::ROWS[1].first==154);
+    assert(hero_anim::ROWS[7].last==1086);
+    assert(hero_anim::COLUMNS[0].first==39);
+    assert(hero_anim::COLUMNS[9].last==1407);
+    for(int row=0;row<hero_anim::DIRECTIONS;row++)
+        for(int pose=0;pose<hero_anim::FRAMES;pose++){
+            const auto cell=hero_anim::crop(row,pose);
+            const float left=cell.x*hero_anim::SHEET_W;
+            const float top=cell.y*hero_anim::SHEET_H;
+            const float width=cell.w*hero_anim::SHEET_W;
+            const float height=cell.h*hero_anim::SHEET_H;
+            assert(left>=0.f && top>=0.f);
+            assert(left+width<=hero_anim::SHEET_W+0.001f);
+            assert(top+height<=hero_anim::SHEET_H+0.001f);
+            assert(width<=hero_anim::CANVAS_W);
+            assert(height<=hero_anim::CANVAS_H);
+        }
     // Starter gear should be weak and ordinary, and swapping gear must
     // immediately affect both incoming and outgoing combat damage.
     std::array<int,6> equipped{{0,0,0,18,0,0}};
