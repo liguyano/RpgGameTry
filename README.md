@@ -4,8 +4,11 @@ The latest `assets/hero.png` uses an **8 × 10 sprite atlas** with a
 pure-white background and no headings. Each of the eight rows is a direction
 and each of its ten cells is one walking frame. `src/hero_animation.h`
 selects direction and frame (14 FPS), and `asset_pipeline.inc` preloads
-80 separate textures, replacing the near-white matte with transparent pixels
-without the previous semi-transparent white fringe.
+80 separate textures, removing the connected near-white matte. The generated
+1448×1086 artwork has **irregular row spacing**, so its 80 crops are measured
+rather than equally divided; each is placed on a common transparent canvas
+and bottom-aligned to avoid cut-off boots, stray neighbouring frames and
+walking-frame jumps.
 
 Atlas row order: Down, Down-Left, Left, Up-Left, Up, Up-Right, Right,
 Down-Right. WASD combinations select all eight directional animations.
