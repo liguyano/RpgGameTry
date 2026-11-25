@@ -3,6 +3,7 @@
 #include "shop_map.h"
 #include "equipment.h"
 #include "hero_animation.h"
+#include "combat.h"
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -111,6 +112,17 @@ int main() {
             assert(width<=hero_anim::CANVAS_W);
             assert(height<=hero_anim::CANVAS_H);
         }
+    // Sword uses a proper 120-degree forward arc, not a circle.
+    assert(combat::swordHits({0.f,0.f},{1.f,0.f},{40.f,0.f}));
+    assert(combat::swordHits({0.f,0.f},{1.f,0.f},{35.f,30.f}));
+    assert(!combat::swordHits({0.f,0.f},{1.f,0.f},{-40.f,0.f}));
+    assert(!combat::swordHits({0.f,0.f},{1.f,0.f},{0.f,45.f}));
+    assert(!combat::swordHits({0.f,0.f},{1.f,0.f},{90.f,0.f}));
+    assert(combat::slashFrame(combat::SWING_DURATION,4)==0);
+    assert(combat::slashFrame(0.f,4)==3);
+    assert(combat::ENEMY_WINDUP>.3f);
+    assert(combat::ENEMY_RECOVERY>combat::ENEMY_WINDUP);
+    assert(combat::ENEMY_STAGGER>0.f);
     // Starter gear should be weak and ordinary, and swapping gear must
     // immediately affect both incoming and outgoing combat damage.
     std::array<int,6> equipped{{0,0,0,18,0,0}};
