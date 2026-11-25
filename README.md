@@ -1,3 +1,26 @@
+## Equipment progression and combat stats
+
+Players no longer start with a complete set of powerful demo weapons and
+armor. A new game begins with **plain tunic (DEF +1)**, bread, an apple,
+**18 gold**, and **bare hands (ATK 2)**. Talk to Father at home to receive a
+**worn sword (ATK +3)**, which is placed in the backpack; equip it using
+**I/B**, select the sword and press **E/Enter**. Skipping the family dialogue
+is supported, so that sword is optional.
+
+Every equipped slot contributes its own attack/defense bonus. Effective hero
+stats are calculated from the six actual equipment slots, not from backpack
+contents. Both the inventory and the combat HUD display **ATK/DEF**. Physical
+damage uses `max(1, attack - defense)`: goblins have 10 HP, 1 DEF, and
+14 ATK. A plain tunic reduces an incoming goblin strike by one; more armor
+reduces it further. Equipping a stronger weapon decreases the number of hits
+needed to kill a goblin.
+
+The general store offers food, healing supplies, an affordable worn sword and
+tunic, plus an **80-gold iron sword** for future progression. All prices deduct
+real gold and purchases enter the backpack. Item definitions and the attack /
+defense formulas are centralized in `src/equipment.h` with standalone C++
+regression tests. Existing art icons are reused for the new low-tier items.
+
 ## Source code layout
 
 The SDL3 game is no longer implemented in a 2,400-line `src/main.cpp`.
