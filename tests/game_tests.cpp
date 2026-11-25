@@ -5,6 +5,7 @@
 #include "hero_animation.h"
 #include "combat.h"
 #include "east_battle_map.h"
+#include "footstep_particles.h"
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -161,6 +162,31 @@ int main() {
     assert(!east_map::blocked(battleWalker));
     assert(battleWalker.x<400.f);
 
+    // Walking particles follow the feet, have a bounded pool, and decay.
+    footsteps::Emitter emitter{};
+    assert(footsteps::activeCount(emitter)==0);
+    footsteps::update(emitter,1,{200.f,300.f},{200.f,300.f},.03f);
+    assert(footsteps::activeCount(emitter)==0);
+    footsteps::update(emitter,1,{200.f,300.f},{225.f,300.f},.03f);
+    assert(footsteps::activeCount(emitter)==2);
+    assert(emitter.particles[0].position.x>190.f);
+    // Same scene + no displacement: no new emission, but existing dust fades.
+    const int previous=footsteps::activeCount(emitter);
+    footsteps::update(emitter,1,{225.f,300.f},{225.f,300.f},.04f);
+    assert(footsteps::activeCount(emitter)==previous);
+    for(int i=0;i<40;i++)
+        footsteps::update(emitter,1,{225.f,300.f},{225.f,300.f},.03f);
+    assert(footsteps::activeCount(emitter)==0);
+    footsteps::update(emitter,0,{200.f,300.f},{240.f,300.f},.03f);
+    assert(footsteps::activeCount(emitter)==0); // indoor floor is clean
+    for(int i=0;i<90;i++)
+        footsteps::update(emitter,2,{250.f,300.f},
+                          {275.f,300.f},.03f);
+    assert(footsteps::activeCount(emitter)<=footsteps::CAPACITY);
+    // Large teleports, such as changing scenes, must not create smoke clouds.
+    footsteps::reset(emitter,2);
+    footsteps::update(emitter,2,{0.f,0.f},{400.f,400.f},.03f);
+    assert(footsteps::activeCount(emitter)==0);
     // Starter gear should be weak and ordinary, and swapping gear must
     // immediately affect both incoming and outgoing combat damage.
     std::array<int,6> equipped{{0,0,0,18,0,0}};
