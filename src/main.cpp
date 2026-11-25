@@ -3,6 +3,7 @@
 #include "shop_map.h"
 #include "equipment.h"
 #include "hero_animation.h"
+#include "combat.h"
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #if RPG_HAS_SDL3_TTF
