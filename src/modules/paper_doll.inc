@@ -60,8 +60,8 @@ inline bool draw(SDL_Renderer* renderer,SDL_Texture* body,SDL_Texture* armor,
         if(SDL_GetTextureSize(armor,&aw,&ah) && aw>0.f && ah>0.f){
             const SDL_FRect armorSrc=armorSource(dir,pose,aw,ah);
             // Independent chest anchor: shoulders below head, hem above shorts.
-            const SDL_FRect armorDst{position.x-14.f,position.y-36.f,
-                                      28.f,29.f};
+            const SDL_FRect armorDst{position.x-14.f,position.y-27.f,
+                                      28.f,23.f};
             SDL_RenderTexture(renderer,armor,&armorSrc,&armorDst);
         }
     }
