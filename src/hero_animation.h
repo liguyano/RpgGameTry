@@ -59,8 +59,10 @@ inline int direction(game::Vec2 facing){
     return y<0.f?4:0;
 }
 inline constexpr float visualScale(int){return 1.f;}
-inline int frame(float seconds,bool moving){
+inline int frame(float seconds,bool moving,int direction){
     if(!moving)return 0;
-    return static_cast<int>(std::floor(std::max(0.f,seconds)*FPS))%FRAMES;
+    // Keep the slower gait only when travelling straight up or down.
+    const float fps=(direction==0 || direction==4)?10.f:13.f;
+    return static_cast<int>(std::floor(std::max(0.f,seconds)*fps))%FRAMES;
 }
 } // namespace hero_anim
