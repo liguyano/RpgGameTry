@@ -145,6 +145,7 @@ struct World {
     bool justArrived=true;
     bool largeVillage=false;
     bool showCollision=false;
+    bool skeletalMode=false; // F4 switches the experimental cutout rig on/off
     float noticeAge=0.f; // real-time fade clock for chapter and control tips
     bool inventoryOpen=false;
     bool shopMenu=false;
@@ -181,6 +182,7 @@ struct ArtAssets {
     SDL_Texture* lily=nullptr;
     std::array<SDL_Texture*,54> familyFrames{};
     std::array<SDL_Texture*,hero_anim::DIRECTIONS*hero_anim::FRAMES> heroFrames{};
+    std::array<skeletal::Atlas,hero_anim::DIRECTIONS> skeletalAtlases{};
     std::array<SDL_Texture*,12> villageProps{};
     std::array<SDL_Texture*,12> fountainFrames{}; // legacy spring.png fallback (first frame only)
     SDL_Texture* fountainBase=nullptr;
