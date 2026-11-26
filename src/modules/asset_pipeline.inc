@@ -194,7 +194,7 @@ int facingSpriteDirection(Vec2 facing){
 bool drawAnimatedHero(SDL_Renderer* r,const ArtAssets& art,
                       Vec2 position,Vec2 facing,bool moving,float animTime){
     const int direction=hero_anim::direction(facing);
-    const int frame=hero_anim::frame(animTime,moving);
+    const int frame=hero_anim::frame(animTime,moving,direction);
     SDL_Texture* texture=art.heroFrames[size_t(direction)*hero_anim::FRAMES+size_t(frame)];
     if(!texture)texture=art.heroFrames[size_t(direction)*hero_anim::FRAMES];
     if(!texture)return false;
