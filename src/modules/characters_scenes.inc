@@ -50,7 +50,7 @@ void drawVillagerSprite(SDL_Renderer* renderer,const ArtAssets& art,
                         const Character& fallback){
     const int direction=std::abs(facing.x)>std::abs(facing.y)?
         (facing.x<0.f?1:2):(facing.y<0.f?3:0);
-    const int pose=moving?int(clock*7.f)%4:0;
+    const int pose=moving?int(clock*5.5f)%4:0;
     const int idx=(who*4+direction)*4+pose;
     SDL_Texture* texture=art.villagerFrames[size_t(idx)];
     if(!texture)texture=art.villagerFrames[size_t((who*4+direction)*4)];
