@@ -156,7 +156,7 @@ inline void drawPart(SDL_Renderer* r,const Atlas& a,Part part,
 // Rotations only change the body segment, not the character collision.
 inline void draw(SDL_Renderer* renderer,const Atlas& a,
                  game::Vec2 pos,bool moving,float animation,float slashTimer,
-                 bool debug,bool verticalWalk){
+                 bool debug,bool verticalWalk,SDL_Texture* tunicAtlas,int facing,bool showTunic){
     if(!a.ready)return;
     (void)verticalWalk;
     const float phase=moving?animation*8.04f:0.f;
@@ -200,6 +200,17 @@ inline void draw(SDL_Renderer* renderer,const Atlas& a,
     drawArm(true);
     drawPart(renderer,a,Torso,x,feet-51.f,25.f,29.f,
              step*(moving?2.f:0.f),.5f,.02f);
+    // Two rows of four: up, rightup, right, rightdown; down, leftdown, left, leftup.
+    if(showTunic && tunicAtlas){
+        float aw=0.f,ah=0.f;
+        if(SDL_GetTextureSize(tunicAtlas,&aw,&ah) && aw>0.f && ah>0.f){
+            const int cell=(facing+4)%8;
+            const float cw=aw/4.f,ch=ah/2.f;
+            const SDL_FRect src{float(cell%4)*cw+cw*.16f,float(cell/4)*ch+ch*.13f,cw*.68f,ch*.70f};
+            const SDL_FRect dst{x-16.f,feet-53.f,32.f,35.f};
+            SDL_RenderTexture(renderer,tunicAtlas,&src,&dst);
+        }
+    }
     drawPart(renderer,a,Head,x,feet-65.f,31.f,27.f,
              step*(moving?2.f:0.f),.5f,.25f);
     drawLeg(false);
