@@ -731,6 +731,38 @@ SDL_Texture* loadCombatAtlas(SDL_Renderer* renderer,const char* filename){
     return nullptr;
 #endif
 }
+// Generated 8-facing tunic atlas: remove near-black matte from every cell.
+// Global flood-fill leaves trapped black rectangles between/inside pieces.
+SDL_Texture* loadTunicAtlas(SDL_Renderer* renderer){
+#if RPG_HAS_SDL3_IMAGE
+    namespace fs=std::filesystem;
+    for(const auto& root:{"assets","../assets","../../assets"}){
+        const fs::path path=fs::path(root)/"torso_tunic.png";
+        if(!fs::exists(path))continue;
+        SDL_Surface* source=IMG_Load(path.string().c_str());
+        if(!source)continue;
+        SDL_Surface* surface=SDL_ConvertSurface(source,SDL_PIXELFORMAT_RGBA32);
+        SDL_DestroySurface(source);
+        if(!surface)continue;
+        for(int y=0;y<surface->h;y++)for(int x=0;x<surface->w;x++){
+            Uint8 red=0,green=0,blue=0,alpha=0;
+            if(!SDL_ReadSurfacePixel(surface,x,y,&red,&green,&blue,&alpha))continue;
+            if(red<35 && green<35 && blue<35)
+                SDL_WriteSurfacePixel(surface,x,y,0,0,0,0);
+        }
+        SDL_Texture* texture=SDL_CreateTextureFromSurface(renderer,surface);
+        SDL_DestroySurface(surface);
+        if(texture){
+            SDL_SetTextureScaleMode(texture,SDL_SCALEMODE_NEAREST);
+            SDL_SetTextureBlendMode(texture,SDL_BLENDMODE_BLEND);
+        }
+        return texture;
+    }
+#else
+    (void)renderer;
+#endif
+    return nullptr;
+}
 ArtAssets loadArtAssets(SDL_Renderer* renderer){
     ArtAssets result;
 #if RPG_HAS_SDL3_IMAGE
@@ -773,7 +805,7 @@ ArtAssets loadArtAssets(SDL_Renderer* renderer){
     result.itemsAtlas=loadArt(renderer,"items.png");
     result.goblinAtlas=loadCombatAtlas(renderer,"goblin.png");
     result.swordAtlas=loadCombatAtlas(renderer,"sword_attack.png");
-    result.tunicAtlas=loadCombatAtlas(renderer,"torso_tunic.png");
+    result.tunicAtlas=loadTunicAtlas(renderer);
     result.shopBackground=loadArt(renderer,"shopback.png");
     loadShopFurniture(renderer,result);
     result.fountainBase=loadArt(renderer,"fountain_base.png");
