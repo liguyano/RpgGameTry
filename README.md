@@ -1,3 +1,17 @@
+## Tactical goblin AI (flanking and attack rotation)
+
+Goblins no longer converge on the same hero coordinate. The combat AI
+assigns each monster a stable **vanguard, left flanker, right flanker, or
+rear harasser** role with offset slots around the hero. Neighbours exert
+a separation force, and movement tries alternate steering directions to
+avoid getting stuck against the eastern forest's rocks. Short, staggered
+lunge windows force changing positions while the rest of the pack circles
+and repositions. At most two goblins begin their visible melee windups
+at once; hit stagger, attack damage, armor defense and dodge-by-spacing
+remain intact. Role geometry and the attack cap are covered by unit tests
+in `tests/game_tests.cpp`. Tactical constants are in
+`src/enemy_tactics.h`.
+
 ## Walking footsteps and ground particles
 
 Outdoor movement now leaves a subtle burst of short-lived pixel particles
