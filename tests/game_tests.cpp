@@ -72,71 +72,41 @@ int main() {
     auto camera=village::camera({village::WORLD_W,village::WORLD_H});
     assert(camera.x == village::WORLD_W-WIDTH);
     assert(camera.y == village::WORLD_H-HEIGHT);
-    // Eight distinct directions with a full 10-pose walking loop.
-    assert(hero_anim::DIRECTIONS==8 && hero_anim::FRAMES==10);
-    assert(hero_anim::direction({0.f,1.f})==0); // south
-    assert(hero_anim::direction({-0.707f,0.707f})==1); // SW
-    assert(hero_anim::direction({-1.f,0.f})==2); // west
-    assert(hero_anim::direction({-0.707f,-0.707f})==3); // NW
-    assert(hero_anim::direction({0.f,-1.f})==4); // north
-    assert(hero_anim::direction({0.707f,-0.707f})==5); // NE
-    assert(hero_anim::direction({1.f,0.f})==6); // east
-    assert(hero_anim::direction({0.707f,0.707f})==7); // SE
+    // 9 authentic poses per direction, without an artificial 10th pose.
+    assert(hero_anim::DIRECTIONS==8 && hero_anim::FRAMES==9);
+    assert(hero_anim::direction({0.f,1.f})==0);
+    assert(hero_anim::direction({-0.707f,0.707f})==1);
+    assert(hero_anim::direction({-1.f,0.f})==2);
+    assert(hero_anim::direction({-0.707f,-0.707f})==3);
+    assert(hero_anim::direction({0.f,-1.f})==4);
+    assert(hero_anim::direction({0.707f,-0.707f})==5);
+    assert(hero_anim::direction({1.f,0.f})==6);
+    assert(hero_anim::direction({0.707f,0.707f})==7);
     assert(hero_anim::frame(0.f,true)==0);
-    assert(hero_anim::frame(0.5f,true)==7);
-    assert(hero_anim::frame(1.f,true)==4);
-    assert(hero_anim::frame(7.f,false)==0);
-    for(int row=0;row<hero_anim::DIRECTIONS;row++)
-        for(int frame=0;frame<hero_anim::FRAMES;frame++){
-            const auto cell=hero_anim::crop(row,frame);
-            assert(cell.x>=0.f && cell.y>=0.f);
-            assert(cell.w>0.f && cell.h>0.f);
-            assert(cell.x+cell.w<=1.f);
-            assert(cell.y+cell.h<=1.f);
-        }
-    // New base hero PNG has a strict 10x8 grid and no black/white matte.
-    assert(hero_anim::GRID_W==1280 && hero_anim::GRID_H==1024);
+    assert(hero_anim::frame(1.f,false)==0);
+    assert(hero_anim::frame(float(hero_anim::FRAMES)/hero_anim::FPS,true)==0);
+    assert(hero_anim::GRID_W==1152 && hero_anim::GRID_H==1024);
+    assert(hero_anim::SHEET_W==1402 && hero_anim::SHEET_H==1122);
+    assert(hero_anim::ROWS[0].last==158);
+    assert(hero_anim::ROWS[7].last==1086);
+    assert(hero_anim::COLUMNS[0].first==40);
+    assert(hero_anim::COLUMNS[8].last==1378);
     for(int direction=0;direction<hero_anim::DIRECTIONS;direction++)
         for(int pose=0;pose<hero_anim::FRAMES;pose++){
+            const auto crop=hero_anim::crop(direction,pose);
+            assert(crop.x>=0.f && crop.y>=0.f);
+            assert(crop.w>0.f && crop.h>0.f);
+            assert(crop.x+crop.w<=float(hero_anim::SHEET_W));
+            assert(crop.y+crop.h<=float(hero_anim::SHEET_H));
+            assert(crop.w<=hero_anim::CANVAS_W);
+            assert(crop.h<=hero_anim::CANVAS_H);
             const auto cell=hero_anim::gridCrop(direction,pose);
             assert(cell.x==float(pose*128));
             assert(cell.y==float(direction*128));
             assert(cell.w==128.f && cell.h==128.f);
             assert(cell.x+cell.w<=float(hero_anim::GRID_W));
             assert(cell.y+cell.h<=float(hero_anim::GRID_H));
-        }
-    // Rendering compensation for the two oversized hero animation rows.
-    assert(hero_anim::visualScale(0)==0.88f);
-    assert(hero_anim::visualScale(1)==0.95f);
-    for(int dir=2;dir<hero_anim::DIRECTIONS;dir++)
-        assert(hero_anim::visualScale(dir)==1.f);
-    // Resizing around the foot anchor must not move the player baseline.
-    for(int dir=0;dir<hero_anim::DIRECTIONS;dir++){
-        const float scale=hero_anim::visualScale(dir);
-        const float bottom=123.f+14.f;
-        const float drawY=bottom-78.f*scale;
-        assert(std::abs(drawY+78.f*scale-bottom)<.0001f);
-    }
-    // The actual 1448x1086 PNG has unevenly spaced walking rows.
-    // Cropping each row at imageHeight/8 cut off boots in the top rows.
-    assert(hero_anim::SHEET_W==1448.f && hero_anim::SHEET_H==1086.f);
-    assert(hero_anim::ROWS[0].last==154);
-    assert(hero_anim::ROWS[1].first==154);
-    assert(hero_anim::ROWS[7].last==1086);
-    assert(hero_anim::COLUMNS[0].first==39);
-    assert(hero_anim::COLUMNS[9].last==1407);
-    for(int row=0;row<hero_anim::DIRECTIONS;row++)
-        for(int pose=0;pose<hero_anim::FRAMES;pose++){
-            const auto cell=hero_anim::crop(row,pose);
-            const float left=cell.x*hero_anim::SHEET_W;
-            const float top=cell.y*hero_anim::SHEET_H;
-            const float width=cell.w*hero_anim::SHEET_W;
-            const float height=cell.h*hero_anim::SHEET_H;
-            assert(left>=0.f && top>=0.f);
-            assert(left+width<=hero_anim::SHEET_W+0.001f);
-            assert(top+height<=hero_anim::SHEET_H+0.001f);
-            assert(width<=hero_anim::CANVAS_W);
-            assert(height<=hero_anim::CANVAS_H);
+            assert(hero_anim::visualScale(direction)==1.f);
         }
     // Sword uses a proper 120-degree forward arc, not a circle.
     assert(combat::swordHits({0.f,0.f},{1.f,0.f},{40.f,0.f}));
