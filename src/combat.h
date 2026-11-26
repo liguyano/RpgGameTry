@@ -5,8 +5,8 @@
 
 namespace combat {
 constexpr float PI=3.14159265358979323846f;
-constexpr float ATTACK_REACH=72.f;
-constexpr float ATTACK_HALF_ANGLE=PI/3.f; // 120-degree sword arc
+constexpr float ATTACK_REACH=60.f;
+constexpr float ATTACK_HALF_ANGLE=PI*35.f/180.f; // 70-degree total forward sword arc
 constexpr float SWING_DURATION=.34f;
 constexpr float ENEMY_NOTICE_DISTANCE=315.f;
 constexpr float ENEMY_ATTACK_RANGE=37.f;
@@ -21,7 +21,7 @@ inline bool swordHits(game::Vec2 origin,game::Vec2 facing,game::Vec2 enemy){
     const game::Vec2 delta{enemy.x-origin.x,enemy.y-origin.y};
     const float squared=game::distanceSquared(origin,enemy);
     if(squared>ATTACK_REACH*ATTACK_REACH)return false;
-    if(squared<1.f)return true;
+    if(squared<1.f)return false; // zero distance has no meaningful forward direction
     const game::Vec2 unit=game::normalized(delta);
     return unit.x*facing.x+unit.y*facing.y>=std::cos(ATTACK_HALF_ANGLE);
 }
