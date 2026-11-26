@@ -7,7 +7,10 @@ constexpr int DIRECTIONS=8;
 constexpr int POSES=10;
 constexpr float FPS=12.f;
 // Game order: down, down-left, left, up-left, up, up-right, right, down-right.
-constexpr int SHEET_ROW[DIRECTIONS]={0,7,6,5,4,3,2,1};
+// New hero.png and torso_tunic.png share row order:
+ // down, down-left, left, up-left, up, up-right, right, down-right.
+ // Do not reverse the rows: doing so draws the wrong facing sprites.
+constexpr int SHEET_ROW[DIRECTIONS]={0,1,2,3,4,5,6,7};
 constexpr float HERO_REF_W=1402.f,HERO_REF_H=1122.f;
 constexpr float ARMOR_REF_W=1448.f,ARMOR_REF_H=1086.f;
 constexpr float HERO_CENTER[POSES]={
@@ -47,6 +50,7 @@ inline bool draw(SDL_Renderer* renderer,SDL_Texture* body,SDL_Texture* armor,
     float bw=0.f,bh=0.f;
     if(!SDL_GetTextureSize(body,&bw,&bh)||bw<=0.f||bh<=0.f)return false;
     const int direction=hero_anim::direction(facing);
+    // Use all ten poses; the idle frame is pose 0.
     const int pose=moving?
         (int(std::floor(std::max(0.f,animationTime)*FPS))%POSES):0;
     const SDL_FRect bodySource=frameRect(direction,pose,bw,bh,false);
