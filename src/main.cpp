@@ -4,6 +4,7 @@
 #include "equipment.h"
 #include "hero_animation.h"
 #include "combat.h"
+#include "enemy_tactics.h"
 #include "east_battle_map.h"
 #include "footstep_particles.h"
 #include <SDL3/SDL.h>
