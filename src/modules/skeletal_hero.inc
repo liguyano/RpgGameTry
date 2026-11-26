@@ -159,7 +159,7 @@ inline void draw(SDL_Renderer* renderer,const Atlas& a,
                  bool debug,bool verticalWalk){
     if(!a.ready)return;
     (void)verticalWalk;
-    const float phase=moving?animation*6.7f:0.f;
+    const float phase=moving?animation*8.04f:0.f;
     const float step=std::sin(phase);
     const float bob=moving?std::abs(std::sin(phase))*.9f:0.f;
     const float feet=pos.y+12.f-bob;
