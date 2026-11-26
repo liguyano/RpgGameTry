@@ -28,20 +28,31 @@ const std::array<Character,3> VILLAGERS{{
     {{345,325},"MERCHANT",96,137,106,false,false},
     {{670,325},"GUARD",123,133,158,false,false}
 }};
+// Match the paper-doll hero's ~52x72 game-space sprite size.
+// Only visual rectangles are scaled; NPC positions and interactions stay fixed.
 void drawPerson(SDL_Renderer* r,const Character& c) {
     int x=int(c.p.x),y=int(c.p.y),height=c.child?15:20;
-    rect(r,x-13,y+14,26,5,37,59,49);
-    rect(r,x-8,y,6,14,63,60,66);
-    rect(r,x+3,y,6,14,63,60,66);
-    rect(r,x-11,y-height,22,height+2,c.r,c.g,c.b);
-    rect(r,x-15,y-height+4,5,14,207,159,118);
-    rect(r,x+11,y-height+4,5,14,207,159,118);
-    rect(r,x-9,y-height-16,18,16,224,176,127);
-    rect(r,x-10,y-height-19,20,7,c.older?109:95,c.older?91:59,c.older?71:44);
-    rect(r,x-11,y-height-15,4,10,c.older?132:99,c.older?115:68,c.older?93:48);
-    rect(r,x+7,y-height-15,4,10,c.older?132:99,c.older?115:68,c.older?93:48);
-    rect(r,x-5,y-height-9,3,3,55,50,49);
-    rect(r,x+3,y-height-9,3,3,55,50,49);
+    constexpr float npcScale=1.25f;
+    auto npcRect=[&](SDL_Renderer* renderer,int px,int py,int width,int heightPx,
+                     Uint8 red,Uint8 green,Uint8 blue){
+        const int left=int(std::lround(float(x)+(float(px)-float(x))*npcScale));
+        const int top=int(std::lround(float(y+14)+(float(py)-float(y+14))*npcScale));
+        const int ww=std::max(1,int(std::lround(float(width)*npcScale)));
+        const int hh=std::max(1,int(std::lround(float(heightPx)*npcScale)));
+        rect(renderer,left,top,ww,hh,red,green,blue);
+    };
+    npcRect(r,x-13,y+14,26,5,37,59,49);
+    npcRect(r,x-8,y,6,14,63,60,66);
+    npcRect(r,x+3,y,6,14,63,60,66);
+    npcRect(r,x-11,y-height,22,height+2,c.r,c.g,c.b);
+    npcRect(r,x-15,y-height+4,5,14,207,159,118);
+    npcRect(r,x+11,y-height+4,5,14,207,159,118);
+    npcRect(r,x-9,y-height-16,18,16,224,176,127);
+    npcRect(r,x-10,y-height-19,20,7,c.older?109:95,c.older?91:59,c.older?71:44);
+    npcRect(r,x-11,y-height-15,4,10,c.older?132:99,c.older?115:68,c.older?93:48);
+    npcRect(r,x+7,y-height-15,4,10,c.older?132:99,c.older?115:68,c.older?93:48);
+    npcRect(r,x-5,y-height-9,3,3,55,50,49);
+    npcRect(r,x+3,y-height-9,3,3,55,50,49);
     if(c.older)rect(r,x-6,y-height-3,12,7,166,147,119);
     if(c.child)rect(r,x-14,y-height-15,6,8,159,82,56);
 }
@@ -55,7 +66,7 @@ void drawVillagerSprite(SDL_Renderer* renderer,const ArtAssets& art,
     SDL_Texture* texture=art.villagerFrames[size_t(idx)];
     if(!texture)texture=art.villagerFrames[size_t((who*4+direction)*4)];
     if(texture){
-        SDL_FRect destination{feet.x-20.f,feet.y-61.f,40.f,66.f};
+        SDL_FRect destination{feet.x-26.f,feet.y-58.f,52.f,72.f};
         SDL_RenderTexture(renderer,texture,nullptr,&destination);
     }else{
         Character npc=fallback;
