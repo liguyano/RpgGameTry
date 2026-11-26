@@ -35,6 +35,7 @@ constexpr int MAX_HEALTH=100;
 // and avoid linkage changes while its subsystems are being modularized.
 // These fragments are ordered by the dependencies of the original code.
 #include "modules/skeletal_hero.inc"
+#include "modules/hero_parts_sheet.inc"
 #include "modules/world_state.inc"
 #include "modules/asset_pipeline.inc"
 #include "modules/world_renderer.inc"
@@ -298,13 +299,17 @@ int main(int argc,char** argv){
         const int rigDirection=hero_anim::direction(world.hero.facing);
         const auto& rig=art.skeletalAtlases[size_t(rigDirection)];
         const bool rigDrawn=world.skeletalMode && rig.ready;
+        const bool partsDrawn=!world.skeletalMode && hero_parts::draw(
+            renderer,art.heroParts,heroScreen,world.hero.facing,
+            world.hero.moving,world.hero.animationTime,
+            art.tunicAtlas,world.equipped[3]==18);
         if(rigDrawn){
             skeletal::draw(renderer,rig,heroScreen,world.hero.moving,
                            world.hero.animationTime,world.hero.slashTimer,
                            world.showCollision,rigDirection==0 || rigDirection==4,
                            art.tunicAtlas,rigDirection,world.equipped[3]==18);
         }
-        if(!rigDrawn){
+        if(!rigDrawn && !partsDrawn){
             if(!drawAnimatedHero(renderer,art,heroScreen,world.hero.facing,
                                  world.hero.moving,world.hero.animationTime)){
                 if(world.story>=9)
@@ -343,7 +348,7 @@ int main(int argc,char** argv){
             drawAnimatedFountain(renderer,art,camera,world.hero.pos.y,world.time,true);
             drawVillagePopulation(renderer,art,world,camera,true);
         }
-        fillText(renderer,world.skeletalMode?"F4 BONES ON":"F4 BONES OFF",
+        fillText(renderer,world.skeletalMode?"F4 OLD BONES":"F4 NEW PARTS",
                  12,HEIGHT-22,2,world.skeletalMode?130:201,
                  world.skeletalMode?239:202,165);
         if(world.story<9)drawInteractPrompt(renderer,world);
