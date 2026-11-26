@@ -1,3 +1,17 @@
+## New armor-ready base hero atlas
+
+A new **scarf-free, armor-free** base character spritesheet has been prepared
+as `hero.png`: 1280×1024 RGBA, a regular 10-column × 8-row grid of 128×128
+cells. Original artwork had only nine columns; the tenth repeats the first
+pose as a loop-closing frame. Rows remain South, Southwest, West, Northwest,
+North, Northeast, East, Southeast.
+
+When the replacement PNG is installed at `assets/hero.png`, the loader
+recognizes the exact dimensions, preserves transparency, and slices all 80
+cells directly. Older irregularly spaced hero.png spritesheets still work
+using the previous measured crop paths; the old direction-specific scale
+compensation is only applied to those older art assets.
+
 ## Tactical goblin AI (flanking and attack rotation)
 
 Goblins no longer converge on the same hero coordinate. The combat AI
