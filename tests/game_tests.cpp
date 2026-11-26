@@ -82,9 +82,12 @@ int main() {
     assert(hero_anim::direction({0.707f,-0.707f})==5);
     assert(hero_anim::direction({1.f,0.f})==6);
     assert(hero_anim::direction({0.707f,0.707f})==7);
-    assert(hero_anim::frame(0.f,true)==0);
-    assert(hero_anim::frame(1.f,false)==0);
-    assert(hero_anim::frame(float(hero_anim::FRAMES)/hero_anim::FPS,true)==0);
+    assert(hero_anim::frame(0.f,true,0)==0);
+    assert(hero_anim::frame(1.f,false,6)==0);
+    assert(hero_anim::frame(float(hero_anim::FRAMES)/10.f,true,0)==0);
+    assert(hero_anim::frame(float(hero_anim::FRAMES)/13.f,true,6)==0);
+    assert(hero_anim::frame(.1f,true,0)==1);
+    assert(hero_anim::frame(.1f,true,6)==1);
     assert(hero_anim::GRID_W==1152 && hero_anim::GRID_H==1024);
     assert(hero_anim::SHEET_W==1402 && hero_anim::SHEET_H==1122);
     assert(hero_anim::ROWS[0].last==158);
