@@ -4,6 +4,7 @@
 #include "equipment.h"
 #include "hero_animation.h"
 #include "combat.h"
+#include "enemy_tactics.h"
 #include "east_battle_map.h"
 #include "footstep_particles.h"
 #include <cassert>
@@ -187,6 +188,38 @@ int main() {
     footsteps::reset(emitter,2);
     footsteps::update(emitter,2,{0.f,0.f},{400.f,400.f},.03f);
     assert(footsteps::activeCount(emitter)==0);
+    // Tactical goblins must take distinct roles and surround instead of pile.
+    assert(enemy_ai::role(0)==enemy_ai::Role::Vanguard);
+    assert(enemy_ai::role(1)==enemy_ai::Role::FlankLeft);
+    assert(enemy_ai::role(2)==enemy_ai::Role::FlankRight);
+    assert(enemy_ai::role(3)==enemy_ai::Role::Harasser);
+    const Vec2 fighter{480.f,370.f};
+    const Vec2 look{1.f,0.f};
+    const Vec2 front=enemy_ai::slot(fighter,look,0);
+    const Vec2 left=enemy_ai::slot(fighter,look,1);
+    const Vec2 right=enemy_ai::slot(fighter,look,2);
+    const Vec2 rear=enemy_ai::slot(fighter,look,3);
+    assert(front.x>fighter.x);
+    assert(left.y<fighter.y && right.y>fighter.y);
+    assert(rear.x<fighter.x);
+    for(size_t index=0;index<8;index++)
+        for(size_t other=index+1;other<8;other++)
+            assert(game::distanceSquared(
+                enemy_ai::slot(fighter,look,index),
+                enemy_ai::slot(fighter,look,other))>20.f*20.f);
+    struct DummyEnemy{Vec2 pos;int hp;};
+    const std::array<DummyEnemy,3> opponents{{{{100.f,100.f},3},
+                                               {{110.f,100.f},3},
+                                               {{200.f,100.f},3}}};
+    const Vec2 separation=enemy_ai::separation(opponents,0);
+    assert(separation.x<0.f);
+    assert(enemy_ai::length(separation)>0.f);
+    const Vec2 detour=enemy_ai::steer(opponents,0,{180.f,100.f},look);
+    assert(enemy_ai::length(detour)>.1f);
+    assert(enemy_ai::canWindup(30.f,0.f,false,0));
+    assert(!enemy_ai::canWindup(30.f,0.f,false,2));
+    assert(!enemy_ai::canWindup(45.f,0.f,false,0));
+    assert(!enemy_ai::canWindup(30.f,.5f,false,0));
     // Starter gear should be weak and ordinary, and swapping gear must
     // immediately affect both incoming and outgoing combat damage.
     std::array<int,6> equipped{{0,0,0,18,0,0}};
