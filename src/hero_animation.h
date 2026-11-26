@@ -6,29 +6,28 @@
 
 namespace hero_anim {
 constexpr int DIRECTIONS=8;
-constexpr int FRAMES=10;
-constexpr float FPS=14.f;
+constexpr int FRAMES=9;
+constexpr float FPS=13.f;
 
-// Measured from the actual 1448 x 1086 hero.png, not from equal-sized
-// eighths of its height. On this image the first row runs to y=147,
-// whereas 1086/8=135.75 would cut off the feet.
-// Coordinates are divided by the reference size for resolution independence.
-constexpr float SHEET_W=1448.f;
-constexpr float SHEET_H=1086.f;
-constexpr int CANVAS_W=116;
-constexpr int CANVAS_H=154;
+// Original, unresized 9-column x 8-row image. Pixel positions were
+// measured from the source image (1402 x 1122), not guessed via
+// imageWidth/9 or imageHeight/8. The latter cuts off several boots.
+constexpr int SHEET_W=1402;
+constexpr int SHEET_H=1122;
+constexpr int CANVAS_W=138;
+constexpr int CANVAS_H=158;
 struct Crop {float x,y,w,h;};
-struct Span {int first,last;}; // [first,last)
+struct Span {int first,last;}; // [first,last), source pixel bounds
 inline constexpr std::array<Span,FRAMES> COLUMNS{{
-    {39,145}, {180,290}, {324,430}, {465,575}, {604,710},
-    {742,852}, {880,989}, {1017,1128}, {1161,1265}, {1306,1407}
+    {40,166},{195,319},{345,471},{497,626},{647,777},
+    {798,924},{948,1076},{1099,1227},{1249,1378}
 }};
 inline constexpr std::array<Span,DIRECTIONS> ROWS{{
-    {4,154}, {154,295}, {295,429}, {429,559},
-    {559,696}, {696,828}, {828,956}, {956,1086}
+    {0,158},{158,296},{296,428},{428,554},
+    {554,686},{686,814},{814,946},{946,1086}
 }};
-// Standardized transparent equipment-ready atlas: 10 columns x 8 rows,
-// each cell is 128 x 128. Kept separate from the older irregular atlas.
+
+// Future equipment art may use a standard regular 128px grid with 9 columns.
 constexpr int GRID_CELL=128;
 constexpr int GRID_W=GRID_CELL*FRAMES;
 constexpr int GRID_H=GRID_CELL*DIRECTIONS;
@@ -36,39 +35,32 @@ inline constexpr Crop gridCrop(int row,int pose){
     return {float(pose*GRID_CELL),float(row*GRID_CELL),
             float(GRID_CELL),float(GRID_CELL)};
 }
-inline int direction(game::Vec2 facing){
-    constexpr float diagonal=0.30f;
-    const float x=facing.x,y=facing.y;
-    if(y>diagonal){
-        if(x< -diagonal)return 1; // SW
-        if(x> diagonal)return 7;  // SE
-        return 0;                  // S
-    }
-    if(y< -diagonal){
-        if(x< -diagonal)return 3; // NW
-        if(x> diagonal)return 5;  // NE
-        return 4;                  // N
-    }
-    if(x<0.f)return 2;            // W
-    if(x>0.f)return 6;            // E
-    return y<0.f?4:0;
-}
-// The artwork itself has uneven hero silhouette heights, even after its
-// cells have been cropped to equal-sized transparent canvases. Measured on
-// the 1448x1086 sheet, south averages ~137 source pixels, south-west ~126,
-// versus ~112-124 for the remaining directions. Only compensate these two
-// rows; anchor the resized destination at the original sprite's feet.
-inline constexpr float visualScale(int direction){
-    return direction==0?0.88f:(direction==1?0.95f:1.f);
-}
-inline int frame(float seconds,bool moving){
-    if(!moving)return 0;
-    return static_cast<int>(std::floor(std::max(0.f,seconds)*FPS))%FRAMES;
-}
 inline Crop crop(int row,int pose){
     const Span x=COLUMNS[static_cast<size_t>(pose)];
     const Span y=ROWS[static_cast<size_t>(row)];
-    return {float(x.first)/SHEET_W,float(y.first)/SHEET_H,
-            float(x.last-x.first)/SHEET_W,float(y.last-y.first)/SHEET_H};
+    return {float(x.first),float(y.first),
+            float(x.last-x.first),float(y.last-y.first)};
+}
+inline int direction(game::Vec2 facing){
+    constexpr float diagonal=.30f;
+    const float x=facing.x,y=facing.y;
+    if(y>diagonal){
+        if(x< -diagonal)return 1;
+        if(x> diagonal)return 7;
+        return 0;
+    }
+    if(y< -diagonal){
+        if(x< -diagonal)return 3;
+        if(x> diagonal)return 5;
+        return 4;
+    }
+    if(x<0.f)return 2;
+    if(x>0.f)return 6;
+    return y<0.f?4:0;
+}
+inline constexpr float visualScale(int){return 1.f;}
+inline int frame(float seconds,bool moving){
+    if(!moving)return 0;
+    return static_cast<int>(std::floor(std::max(0.f,seconds)*FPS))%FRAMES;
 }
 } // namespace hero_anim
