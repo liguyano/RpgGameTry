@@ -311,7 +311,7 @@ int main(int argc,char** argv){
         }
         if(world.scene==Scene::OUTSKIRTS && world.story>=9)
             drawSwordSwing(renderer,art,heroScreen,
-                           world.hero.facing,world.hero.slashTimer);
+                           world.hero.facing,world.hero.slashTimer,world.equipped[0]);
         if(world.scene==Scene::SHOP)
             drawShopFurniture(renderer,art,world.hero.pos.y,true);
         if(world.scene==Scene::VILLAGE && world.largeVillage){
