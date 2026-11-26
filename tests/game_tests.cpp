@@ -85,7 +85,8 @@ int main() {
     assert(hero_anim::frame(0.f,true,0)==0);
     assert(hero_anim::frame(1.f,false,6)==0);
     assert(hero_anim::frame(float(hero_anim::FRAMES)/10.f,true,0)==0);
-    assert(hero_anim::frame(float(hero_anim::FRAMES)/13.f,true,6)==0);
+    assert(hero_anim::frame(float(hero_anim::FRAMES)/10.f,true,6)==0);
+    assert(hero_anim::frame(.5f,true,0)==hero_anim::frame(.5f,true,6));
     assert(hero_anim::frame(.1f,true,0)==1);
     assert(hero_anim::frame(.1f,true,6)==1);
     assert(hero_anim::GRID_W==1152 && hero_anim::GRID_H==1024);
