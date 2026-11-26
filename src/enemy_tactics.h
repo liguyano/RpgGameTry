@@ -48,8 +48,8 @@ inline game::Vec2 slot(game::Vec2 hero,game::Vec2 heroFacing,std::size_t index){
             return add(hero,add(mul(side,-79.f-rank*12.f),
                                 mul(forward,-7.f-rank*17.f)));
         case Role::FlankRight:
-            return add(hero,add(mul(side,79.f+rank*12.f),
-                                mul(forward,10.f+rank*13.f)));
+            return add(hero,add(mul(side,79.f+rank*22.f),
+                                mul(forward,10.f+rank*16.f)));
         case Role::Harasser:
             return add(hero,add(mul(forward,-65.f-rank*15.f),
                                 mul(side,rank?43.f:-43.f)));
