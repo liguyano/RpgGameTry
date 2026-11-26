@@ -1,3 +1,14 @@
+## Father's starter weapon
+
+Talk to **Father** in the cottage to receive **Father's Chipped Sword**
+(ATK +3). The rusty, worn-down blade is deliberately weaker than an iron
+sword (ATK +8). If your weapon slot is empty, the gift is equipped
+immediately; otherwise it goes into the first empty bag slot. The gift
+is available once, including if you initially skip the family conversation
+and come home later. The rusty tint is applied to its inventory icon and
+swing effect using existing art, so no new asset upload is needed.
+Use **I/B** to see or swap the weapon.
+
 ## Experimental eight-direction skeletal character (F4)
 
 Eight modular spritesheets are loaded from `assets/hero_bones/` at launch.
