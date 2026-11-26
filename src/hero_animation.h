@@ -27,6 +27,15 @@ inline constexpr std::array<Span,DIRECTIONS> ROWS{{
     {4,154}, {154,295}, {295,429}, {429,559},
     {559,696}, {696,828}, {828,956}, {956,1086}
 }};
+// Standardized transparent equipment-ready atlas: 10 columns x 8 rows,
+// each cell is 128 x 128. Kept separate from the older irregular atlas.
+constexpr int GRID_CELL=128;
+constexpr int GRID_W=GRID_CELL*FRAMES;
+constexpr int GRID_H=GRID_CELL*DIRECTIONS;
+inline constexpr Crop gridCrop(int row,int pose){
+    return {float(pose*GRID_CELL),float(row*GRID_CELL),
+            float(GRID_CELL),float(GRID_CELL)};
+}
 inline int direction(game::Vec2 facing){
     constexpr float diagonal=0.30f;
     const float x=facing.x,y=facing.y;
