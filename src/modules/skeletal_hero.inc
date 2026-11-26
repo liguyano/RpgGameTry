@@ -58,11 +58,6 @@ inline std::vector<Rect> components(SDL_Surface* surface){
     }
     SDL_UnlockSurface(rgba);
     SDL_DestroySurface(rgba);
-    std::sort(result.begin(),result.end(),[](const Rect& a,const Rect& b){
-        const int ay=a.y+a.h/2,by=b.y+b.h/2;
-        if(std::abs(ay-by)>40)return ay<by;
-        return a.x<b.x;
-    });
     return result;
 }
 inline std::vector<std::vector<Rect>> rows(std::vector<Rect> items){
@@ -93,16 +88,21 @@ inline bool assign(Atlas& atlas,const std::vector<std::vector<Rect>>& groups){
         return far?band.front():band.back();
     };
     const size_t boots=groups.size()-1;
-    const size_t shins=groups.size()>=7?boots-1:boots-2;
+    const size_t shins=groups.size()>=7?boots-1:boots-1;
     const size_t thighs=groups.size()>=7?boots-2:boots-1;
     const Rect head=choose(0,true),torso=choose(0,false);
+    const bool combinedLegs=(groups.size()==6 && groups[thighs].size()>=4);
+    const Rect thighFar=combinedLegs?groups[thighs][0]:choose(thighs,true);
+    const Rect thighNear=combinedLegs?groups[thighs][3]:choose(thighs,false);
+    const Rect shinFar=combinedLegs?groups[shins][1]:choose(shins,true);
+    const Rect shinNear=combinedLegs?groups[shins][2]:choose(shins,false);
     const std::array<Rect,PARTS> rects{{
         head,torso,
         choose(1,true),choose(1,false),
         choose(2,true),choose(2,false),
         choose(3,true),choose(3,false),
-        choose(thighs,true),choose(thighs,false),
-        choose(shins,true),choose(shins,false),
+        thighFar,thighNear,
+        shinFar,shinNear,
         choose(boots,true),choose(boots,false)
     }};
     for(int i=0;i<PARTS;i++){
