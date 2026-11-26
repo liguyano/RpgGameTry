@@ -278,8 +278,9 @@ void drawSwordSwing(SDL_Renderer* r,const ArtAssets& art,
     SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_BLEND);
     color(r,249,218,137,220);
     for(int i=0;i<20;i++){
-        const float offset=(-.95f+1.9f*float(i)/19.f)+angle;
-        const float range=43.f+float(i%3);
+        const float offset=(-combat::ATTACK_HALF_ANGLE+
+                            2.f*combat::ATTACK_HALF_ANGLE*float(i)/19.f)+angle;
+        const float range=38.f+float(i%3);
         SDL_RenderPoint(r,hero.x+std::cos(offset)*range,
                          hero.y-15.f+std::sin(offset)*range);
     }
@@ -290,8 +291,8 @@ void drawSwordSwing(SDL_Renderer* r,const ArtAssets& art,
     const int pose=combat::slashFrame(remaining,4);
     const SDL_FRect src{w*float(pose)/4.f,0.f,w/4.f,h/2.f};
     // The source's right-facing sweep is rotated toward the attack vector.
-    const SDL_FRect dst{hero.x+facing.x*31.f-36.f,
-                        hero.y+facing.y*31.f-52.f,72.f,72.f};
+    const SDL_FRect dst{hero.x+facing.x*28.f-29.f,
+                        hero.y+facing.y*28.f-45.f,58.f,58.f};
     SDL_RenderTextureRotated(r,art.swordAtlas,&src,&dst,
                              double(angle*180.f/combat::PI),
                              nullptr,SDL_FLIP_NONE);
