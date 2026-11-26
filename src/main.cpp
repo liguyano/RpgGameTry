@@ -301,7 +301,8 @@ int main(int argc,char** argv){
         if(rigDrawn){
             skeletal::draw(renderer,rig,heroScreen,world.hero.moving,
                            world.hero.animationTime,world.hero.slashTimer,
-                           world.showCollision,rigDirection==0 || rigDirection==4);
+                           world.showCollision,rigDirection==0 || rigDirection==4,
+                           art.tunicAtlas,rigDirection,world.equipped[3]==18);
         }
         if(!rigDrawn && !drawAnimatedHero(renderer,art,heroScreen,world.hero.facing,
                                           world.hero.moving,world.hero.animationTime)){
