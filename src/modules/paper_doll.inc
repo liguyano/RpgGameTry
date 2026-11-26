@@ -1,8 +1,7 @@
 // Paper Doll renderer for the *actual* 1330x1182 image assets.
 // These PNGs have a LEFT LABEL COLUMN and uneven sprite spacing.
-// hero.png is a COMPLETE ARMORED HERO, NOT an undressed base body.
-// To enable a visual undress transition, provide assets/hero_base.png
-// (same 8 directions x 10 poses, preferably the same canvas/layout).
+// hero.png is the unarmored base. Draw the separate torso_tunic.png
+// only when the armor equipment slot holds the starter tunic (ID 18).
 namespace paper_doll {
 constexpr int DIRECTIONS=8;
 constexpr int POSES=10;
@@ -41,25 +40,36 @@ inline SDL_FRect source(int direction,int pose,float width,float height,bool arm
     return {left*sx,range.top*sy,
             std::min(cropW,1330.f-left)*sx,(range.bottom-range.top)*sy};
 }
-inline bool draw(SDL_Renderer* renderer,SDL_Texture* armoredHero,
-                 SDL_Texture* baseHero,SDL_Texture* armor,
-                 game::Vec2 position,game::Vec2 facing,bool moving,
-                 float animationTime,bool wearingArmor){
-    if(!armoredHero && !baseHero)return false;
+inline bool draw(SDL_Renderer* renderer,SDL_Texture* baseHero,
+                 SDL_Texture* armor,game::Vec2 position,game::Vec2 facing,
+                 bool moving,float animationTime,bool wearingArmor){
+    if(!baseHero)return false;
     const int direction=hero_anim::direction(facing);
     const int pose=moving?
         int(std::floor(std::max(0.f,animationTime)*FPS))%POSES:0;
-    // New hero.png has armor baked into its body pixels.  Never stack
-    // torso_tunic.png on top: this would draw a second armor and drift.
-    // Undressed art is supplied separately as hero_base.png.
-    SDL_Texture* chosen=(!wearingArmor && baseHero)?baseHero:armoredHero;
-    if(!chosen)chosen=baseHero;
     float w=0.f,h=0.f;
-    if(!SDL_GetTextureSize(chosen,&w,&h)||w<=0.f||h<=0.f)return false;
+    if(!SDL_GetTextureSize(baseHero,&w,&h)||w<=0.f||h<=0.f)return false;
     const SDL_FRect src=source(direction,pose,w,h,false);
     const SDL_FRect dst{position.x-28.f,position.y-64.f,56.f,78.f};
-    SDL_RenderTexture(renderer,chosen,&src,&dst);
-    (void)armor;
+    // The base is always drawn, independently of the equipped items.
+    SDL_RenderTexture(renderer,baseHero,&src,&dst);
+    if(wearingArmor && armor){
+        float aw=0.f,ah=0.f;
+        if(SDL_GetTextureSize(armor,&aw,&ah) && aw>0.f && ah>0.f){
+            // Armor sprites are separately generated and have different
+            // content bounds from the body; use their own per-row crops.
+            // There are only nine reliably detected armor columns: map
+            // ten walk frames across the nine sprites without crossing
+            // into an adjacent label or empty margin.
+            const int armorPose=std::min(pose,ARMOR_POSES-1);
+            const SDL_FRect armorSrc=source(direction,armorPose,aw,ah,true);
+            // The armor occupies just the torso between neck and waist.
+            // Keep it in game-space, not relative to the source image.
+            const SDL_FRect armorDst{position.x-15.f,
+                                    position.y-34.f,30.f,29.f};
+            SDL_RenderTexture(renderer,armor,&armorSrc,&armorDst);
+        }
+    }
     return true;
 }
 } // namespace paper_doll
