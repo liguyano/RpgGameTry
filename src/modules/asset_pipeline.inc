@@ -83,6 +83,8 @@ SDL_Texture* loadNewFountainAnimation(SDL_Renderer* renderer){
 // subdivision amputates boots and occasionally clips neighboring rows.
 // Each crop is placed on the same transparent canvas, centered horizontally
 // and bottom-aligned so walking poses don't bounce due to crop dimensions.
+// Load either the untouched 1402x1122, 9x8 illustrated sprite sheet,
+// or a future regular transparent 1152x1024, 9x8 armor-ready sheet.
 void loadHeroFrames(SDL_Renderer* r,ArtAssets& art){
 #if RPG_HAS_SDL3_IMAGE
     namespace fs=std::filesystem;
@@ -93,122 +95,93 @@ void loadHeroFrames(SDL_Renderer* r,ArtAssets& art){
         if(fs::exists(candidate)){sheetPath=candidate;break;}
     }
     if(sheetPath.empty()){
-        std::cerr<<"hero.png missing; using fallback hero\n";
+        std::cerr<<"hero.png not found; fallback hero enabled\n";
         return;
     }
     SDL_Surface* sheet=IMG_Load(sheetPath.string().c_str());
     if(!sheet){
-        std::cerr<<"hero.png loading failed: "<<SDL_GetError()<<"\n";
+        std::cerr<<"Cannot load hero.png: "<<SDL_GetError()<<"\n";
         return;
     }
-    // The new armor-ready sprite sheet already contains true alpha and
-    // exact 128px cells. Never apply white-matte flood filling to it.
-    if(sheet->w==hero_anim::GRID_W && sheet->h==hero_anim::GRID_H){
-        int loaded=0;
-        for(int row=0;row<hero_anim::DIRECTIONS;row++){
-            for(int frame=0;frame<hero_anim::FRAMES;frame++){
-                const auto crop=hero_anim::gridCrop(row,frame);
-                const SDL_Rect src{int(crop.x),int(crop.y),
-                                   int(crop.w),int(crop.h)};
-                SDL_Surface* cell=SDL_CreateSurface(hero_anim::GRID_CELL,
-                                                     hero_anim::GRID_CELL,
-                                                     SDL_PIXELFORMAT_RGBA32);
-                if(!cell)continue;
-                SDL_FillSurfaceRect(cell,nullptr,0);
-                if(SDL_BlitSurface(sheet,&src,cell,nullptr)){
-                    SDL_Texture* texture=SDL_CreateTextureFromSurface(r,cell);
-                    if(texture){
-                        SDL_SetTextureScaleMode(texture,SDL_SCALEMODE_NEAREST);
-                        SDL_SetTextureBlendMode(texture,SDL_BLENDMODE_BLEND);
-                        art.heroFrames[size_t(row)*hero_anim::FRAMES+size_t(frame)]=texture;
-                        ++loaded;
-                    }
-                }
-                SDL_DestroySurface(cell);
-            }
-        }
+    const bool original=(sheet->w==hero_anim::SHEET_W &&
+                         sheet->h==hero_anim::SHEET_H);
+    const bool grid=(sheet->w==hero_anim::GRID_W &&
+                     sheet->h==hero_anim::GRID_H);
+    if(!original&&!grid){
+        std::cerr<<"Invalid hero.png dimensions "<<sheet->w<<"x"<<sheet->h
+                 <<"; expected 1402x1122 (original 9x8) or "
+                 <<hero_anim::GRID_W<<"x"<<hero_anim::GRID_H
+                 <<" (128px cells). Falling back.\n";
         SDL_DestroySurface(sheet);
-        std::cerr<<"Hero normalized transparent 8x10 atlas: "<<loaded<<"/80 loaded\\n";
         return;
     }
-    const int canvasW=std::max(1,int(std::round(hero_anim::CANVAS_W*
-                                         float(sheet->w)/hero_anim::SHEET_W)));
-    const int canvasH=std::max(1,int(std::round(hero_anim::CANVAS_H*
-                                         float(sheet->h)/hero_anim::SHEET_H)));
+    const int canvasW=original?hero_anim::CANVAS_W:hero_anim::GRID_CELL;
+    const int canvasH=original?hero_anim::CANVAS_H:hero_anim::GRID_CELL;
     int loaded=0;
     for(int row=0;row<hero_anim::DIRECTIONS;row++){
-        for(int frame=0;frame<hero_anim::FRAMES;frame++){
-            const auto cell=hero_anim::crop(row,frame);
-            const int left=int(std::round(cell.x*sheet->w));
-            const int top=int(std::round(cell.y*sheet->h));
-            const int width=std::max(1,int(std::round(cell.w*sheet->w)));
-            const int height=std::max(1,int(std::round(cell.h*sheet->h)));
-            const SDL_Rect src{left,top,width,height};
+        for(int pose=0;pose<hero_anim::FRAMES;pose++){
+            const auto c=original?hero_anim::crop(row,pose):
+                                  hero_anim::gridCrop(row,pose);
+            const SDL_Rect src{int(c.x),int(c.y),int(c.w),int(c.h)};
             if(src.x<0||src.y<0||src.x+src.w>sheet->w||
-               src.y+src.h>sheet->h || width>canvasW ||
-               height>canvasH)continue;
-            SDL_Surface* frameSurface=SDL_CreateSurface(width,height,SDL_PIXELFORMAT_RGBA32);
-            if(!frameSurface)continue;
-            if(SDL_BlitSurface(sheet,&src,frameSurface,nullptr)){
-                // Remove only the white/gray matte connected to the sprite
-                // border. This also clears antialiased gray-white fringes
-                // without punching holes in disconnected metal highlights.
-                std::vector<Uint8> visited(size_t(width)*size_t(height),0);
-                std::vector<int> pending;
-                pending.reserve(visited.size());
-                auto backdrop=[&](int x,int y){
-                    Uint8 red=0,green=0,blue=0,alpha=255;
-                    if(!SDL_ReadSurfacePixel(frameSurface,x,y,
-                                             &red,&green,&blue,&alpha))return false;
-                    const int low=std::min({int(red),int(green),int(blue)});
-                    const int high=std::max({int(red),int(green),int(blue)});
-                    return alpha<15 || (low>=175 && high-low<=32);
-                };
-                auto queuePixel=[&](int x,int y){
-                    if(x<0||y<0||x>=width||y>=height)return;
-                    const size_t index=size_t(y)*size_t(width)+size_t(x);
-                    if(visited[index] || !backdrop(x,y))return;
-                    visited[index]=1;
-                    pending.push_back(int(index));
-                };
-                for(int x=0;x<width;x++){
-                    queuePixel(x,0);queuePixel(x,height-1);
-                }
-                for(int y=0;y<height;y++){
-                    queuePixel(0,y);queuePixel(width-1,y);
-                }
-                for(size_t head=0;head<pending.size();head++){
-                    const int index=pending[head];
-                    const int x=index%width,y=index/width;
-                    SDL_WriteSurfacePixel(frameSurface,x,y,0,0,0,0);
-                    queuePixel(x-1,y);queuePixel(x+1,y);
-                    queuePixel(x,y-1);queuePixel(x,y+1);
-                }
-                SDL_Surface* stable=SDL_CreateSurface(canvasW,canvasH,SDL_PIXELFORMAT_RGBA32);
-                if(stable){
-                    SDL_FillSurfaceRect(stable,nullptr,0);
-                    const SDL_Rect dest{
-                        (canvasW-width)/2,
-                        std::max(0,canvasH-height-std::max(1,canvasH/38)),
-                        width,height
+               src.y+src.h>sheet->h||src.w>canvasW||src.h>canvasH)continue;
+            SDL_Surface* cell=SDL_CreateSurface(canvasW,canvasH,
+                                                SDL_PIXELFORMAT_RGBA32);
+            if(!cell)continue;
+            SDL_FillSurfaceRect(cell,nullptr,0);
+            const SDL_Rect dst{(canvasW-src.w)/2,
+                               original?canvasH-src.h-4:0,
+                               src.w,src.h};
+            if(SDL_BlitSurface(sheet,&src,cell,&dst)){
+                if(original){
+                    // The generated source has a nearly-white background.
+                    // Remove only the neutral near-white matte connected to
+                    // cell edges. Keep isolated light details of the shirt.
+                    std::vector<Uint8> seen(size_t(canvasW)*size_t(canvasH),0);
+                    std::vector<int> q;
+                    q.reserve(seen.size());
+                    auto isBackground=[&](int x,int y){
+                        Uint8 red=0,green=0,blue=0,alpha=255;
+                        if(!SDL_ReadSurfacePixel(cell,x,y,
+                                                 &red,&green,&blue,&alpha))
+                            return false;
+                        const int lo=std::min({int(red),int(green),int(blue)});
+                        const int hi=std::max({int(red),int(green),int(blue)});
+                        return alpha<16 || (lo>215 && hi-lo<18);
                     };
-                    if(SDL_BlitSurface(frameSurface,nullptr,stable,&dest)){
-                        SDL_Texture* texture=SDL_CreateTextureFromSurface(r,stable);
-                        if(texture){
-                            SDL_SetTextureScaleMode(texture,SDL_SCALEMODE_NEAREST);
-                            SDL_SetTextureBlendMode(texture,SDL_BLENDMODE_BLEND);
-                            art.heroFrames[size_t(row)*hero_anim::FRAMES+size_t(frame)]=texture;
-                            loaded++;
-                        }
+                    auto addPixel=[&](int x,int y){
+                        if(x<0||y<0||x>=canvasW||y>=canvasH)return;
+                        const size_t k=size_t(y)*size_t(canvasW)+size_t(x);
+                        if(seen[k]||!isBackground(x,y))return;
+                        seen[k]=1;q.push_back(int(k));
+                    };
+                    for(int x=0;x<canvasW;x++){
+                        addPixel(x,0);addPixel(x,canvasH-1);
                     }
-                    SDL_DestroySurface(stable);
+                    for(int y=0;y<canvasH;y++){
+                        addPixel(0,y);addPixel(canvasW-1,y);
+                    }
+                    for(size_t head=0;head<q.size();head++){
+                        const int k=q[head],x=k%canvasW,y=k/canvasW;
+                        SDL_WriteSurfacePixel(cell,x,y,0,0,0,0);
+                        addPixel(x-1,y);addPixel(x+1,y);
+                        addPixel(x,y-1);addPixel(x,y+1);
+                    }
+                }
+                SDL_Texture* texture=SDL_CreateTextureFromSurface(r,cell);
+                if(texture){
+                    SDL_SetTextureScaleMode(texture,SDL_SCALEMODE_NEAREST);
+                    SDL_SetTextureBlendMode(texture,SDL_BLENDMODE_BLEND);
+                    art.heroFrames[size_t(row)*hero_anim::FRAMES+
+                                   size_t(pose)]=texture;
+                    ++loaded;
                 }
             }
-            SDL_DestroySurface(frameSurface);
+            SDL_DestroySurface(cell);
         }
     }
     SDL_DestroySurface(sheet);
-    std::cerr<<"Hero accurately cropped and bottom-aligned: "<<loaded<<"/80\n";
+    std::cerr<<"Hero original 9x8 atlas: "<<loaded<<"/72 frames\n";
 #else
     (void)r;(void)art;
 #endif
