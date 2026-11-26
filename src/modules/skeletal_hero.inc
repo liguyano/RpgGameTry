@@ -156,9 +156,9 @@ inline void drawPart(SDL_Renderer* r,const Atlas& a,Part part,
 // Rotations only change the body segment, not the character collision.
 inline void draw(SDL_Renderer* renderer,const Atlas& a,
                  game::Vec2 pos,bool moving,float animation,float slashTimer,
-                 bool debug){
+                 bool debug,bool verticalWalk){
     if(!a.ready)return;
-    const float phase=moving?animation*6.7f:0.f;
+    const float phase=moving?animation*(verticalWalk?6.7f:8.4f):0.f;
     const float step=std::sin(phase);
     const float bob=moving?std::abs(std::sin(phase))*.9f:0.f;
     const float feet=pos.y+12.f-bob;
