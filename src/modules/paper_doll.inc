@@ -1,68 +1,65 @@
-// Paper-doll rendering for the generated 1774x887 eight-direction/eight-pose atlases.
-// This atlas is irregular: large transparent margin/labels at the left,
-// and row heights are not uniform. Only pixels in the eight character
-// columns are sampled. Equipment is aligned to the torso, not drawn as
-// a full-sized second character.
+// Paper Doll: two independent 8-direction x 10-frame sheets.
+// hero.png: 1402x1122; torso_tunic.png: 1448x1086.
+// The image generators left different margins, so source rectangles MUST
+// be calculated separately. Both layers use the same logical destination
+// rectangle to avoid direction/frame-dependent on-screen drift.
 namespace paper_doll {
 constexpr int DIRECTIONS=8;
-constexpr int POSES=8;
-constexpr float SOURCE_WIDTH=1774.f;
-constexpr float SOURCE_HEIGHT=887.f;
-// Sprite groups, from left to right, repeat one direction's walking poses.
-constexpr float CENTERS[POSES]={
-    432.f,562.f,692.f,821.f,952.f,1081.f,1212.f,1343.f
-};
-// Direction row boundaries measured on the supplied art.
-constexpr float TOPS[DIRECTIONS+1]={
-    0.f,123.f,241.f,354.f,464.f,584.f,686.f,786.f,887.f
-};
-// Sheet row order: down, down-right, right, up-right,
-// up, up-left, left, down-left.
-// Direction order in game: down, down-left, left, up-left,
-// up, up-right, right, down-right.
+constexpr int POSES=10;
+constexpr float FPS=12.f;
+
+// Game order: down, down-left, left, up-left, up, up-right, right, down-right.
+// Image row order: down, down-right, right, up-right, up, up-left, left, down-left.
 constexpr int SHEET_ROW[DIRECTIONS]={0,7,6,5,4,3,2,1};
-inline int direction(game::Vec2 facing){
-    return hero_anim::direction(facing);
+
+// Measured sprite-column centres (in original atlas pixels).
+// These are intentionally NOT regular 1/10-width divisions: both generated
+// images include margins and the horizontal spacing changes slightly.
+constexpr float HERO_CENTERS[POSES]={
+    97.f,235.f,376.f,513.f,651.f,787.f,919.f,1055.f,1186.f,1316.f
+};
+constexpr float ARMOR_CENTERS[POSES]={
+    104.f,241.f,381.f,521.f,660.f,794.f,927.f,1066.f,1206.f,1346.f
+};
+constexpr float HERO_REF_W=1402.f,HERO_REF_H=1122.f;
+constexpr float ARMOR_REF_W=1448.f,ARMOR_REF_H=1086.f;
+// Each crop is centred on the visible sprite, with enough transparent
+// padding to accommodate its movement and preserve a common local anchor.
+constexpr float SOURCE_CROP_W=110.f;
+constexpr float ARMOR_Y_OFFSET=8.f; // generated armor sits ~8 source pixels too low
+
+inline SDL_FRect sourceRect(int direction,int pose,
+                            float imageW,float imageH,bool armor) {
+    const int row=SHEET_ROW[static_cast<size_t>(direction)];
+    const float refW=armor?ARMOR_REF_W:HERO_REF_W;
+    const float refH=armor?ARMOR_REF_H:HERO_REF_H;
+    const float sx=imageW/refW,sy=imageH/refH;
+    const float center=armor?ARMOR_CENTERS[pose]:HERO_CENTERS[pose];
+    const float rowHeight=refH/float(DIRECTIONS);
+    const float yOffset=armor?ARMOR_Y_OFFSET:0.f;
+    return {(center-SOURCE_CROP_W*.5f)*sx,
+            (float(row)*rowHeight+yOffset)*sy,
+            SOURCE_CROP_W*sx,rowHeight*sy};
 }
-inline int frame(float seconds,bool moving){
-    return moving ? (int(std::floor(std::max(0.f,seconds)*12.f))%POSES) : 0;
-}
-inline SDL_FRect bodySource(int direction,int pose,float w,float h){
-    const int row=SHEET_ROW[direction];
-    const float sx=w/SOURCE_WIDTH, sy=h/SOURCE_HEIGHT;
-    // Each character occupies about 65 pixels in a 130-pixel-wide column.
-    // Leave room for hair and moving feet without capturing its neighbours.
-    constexpr float HALF=48.f;
-    return {(CENTERS[pose]-HALF)*sx,TOPS[row]*sy,
-            HALF*2.f*sx,(TOPS[row+1]-TOPS[row])*sy};
-}
-inline SDL_FRect armorSource(int direction,int pose,float w,float h){
-    const int row=SHEET_ROW[direction];
-    const float sx=w/SOURCE_WIDTH, sy=h/SOURCE_HEIGHT;
-    // Crop the armor itself rather than its large transparent sheet cell.
-    // This avoids scaling a chestplate as though it were a whole character.
-    return {(CENTERS[pose]-43.f)*sx,(TOPS[row]+17.f)*sy,
-            86.f*sx,80.f*sy};
-}
+
 inline bool draw(SDL_Renderer* renderer,SDL_Texture* body,SDL_Texture* armor,
                  game::Vec2 position,game::Vec2 facing,bool moving,
-                 float animationTime,bool wearingArmor){
+                 float animationTime,bool wearingArmor) {
     if(!body)return false;
     float bw=0.f,bh=0.f;
     if(!SDL_GetTextureSize(body,&bw,&bh)||bw<=0.f||bh<=0.f)return false;
-    const int dir=direction(facing);
-    const int pose=frame(animationTime,moving);
-    const SDL_FRect bodySrc=bodySource(dir,pose,bw,bh);
-    const SDL_FRect bodyDst{position.x-28.f,position.y-64.f,56.f,78.f};
-    SDL_RenderTexture(renderer,body,&bodySrc,&bodyDst);
+    const int dir=hero_anim::direction(facing);
+    const int pose=moving?
+        (int(std::floor(std::max(0.f,animationTime)*FPS))%POSES):0;
+    // Common logical frame: foot anchor remains at position.y+14.
+    const SDL_FRect dst{position.x-28.f,position.y-64.f,56.f,78.f};
+    const SDL_FRect bodySrc=sourceRect(dir,pose,bw,bh,false);
+    SDL_RenderTexture(renderer,body,&bodySrc,&dst);
     if(wearingArmor && armor){
         float aw=0.f,ah=0.f;
         if(SDL_GetTextureSize(armor,&aw,&ah) && aw>0.f && ah>0.f){
-            const SDL_FRect armorSrc=armorSource(dir,pose,aw,ah);
-            // Independent chest anchor: shoulders below head, hem above shorts.
-            const SDL_FRect armorDst{position.x-14.f,position.y-27.f,
-                                      28.f,23.f};
-            SDL_RenderTexture(renderer,armor,&armorSrc,&armorDst);
+            const SDL_FRect armorSrc=sourceRect(dir,pose,aw,ah,true);
+            SDL_RenderTexture(renderer,armor,&armorSrc,&dst);
         }
     }
     return true;
