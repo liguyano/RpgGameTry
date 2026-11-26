@@ -751,6 +751,22 @@ ArtAssets loadArtAssets(SDL_Renderer* renderer){
     result.lily=loadArt(renderer,"lily.bmp");
     loadFamilyFrames(renderer,result);
     loadHeroFrames(renderer,result);
+    // Per-direction modular bones. leftdwon.png is the uploaded filename;
+    // accept corrected spelling if the asset gets renamed later.
+    const char* boneFiles[8]={"down.png","leftdwon.png","left.png",
+                               "leftup.png","up.png","rightup.png",
+                               "right.png","rightdown.png"};
+    for(int facing=0;facing<8;facing++){
+        bool ok=skeletal::load(renderer,result.skeletalAtlases[size_t(facing)],
+                               boneFiles[facing]);
+        if(!ok && facing==1)
+            ok=skeletal::load(renderer,result.skeletalAtlases[size_t(facing)],
+                              "leftdown.png");
+        std::cerr<<"Skeletal facing "<<facing<<": "
+                 <<(ok?"ready":"missing/invalid")<<", parts detected: "
+                 <<result.skeletalAtlases[size_t(facing)].components<<"\\n";
+    }
+
     loadVillageProps(renderer,result);
     loadVillagerFrames(renderer,result);
     result.uiAtlas=loadArt(renderer,"ui.png");
@@ -786,6 +802,8 @@ void destroyArtAssets(ArtAssets& art){
         if(t)SDL_DestroyTexture(t);
     for(SDL_Texture* t:art.heroFrames)
         if(t)SDL_DestroyTexture(t);
+    for(auto& skeleton:art.skeletalAtlases)
+        if(skeleton.texture)SDL_DestroyTexture(skeleton.texture);
     for(SDL_Texture* t:art.villageProps)
         if(t)SDL_DestroyTexture(t);
     for(SDL_Texture* t:art.fountainFrames)
