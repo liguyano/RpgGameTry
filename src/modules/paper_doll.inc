@@ -6,6 +6,7 @@ namespace paper_doll {
 constexpr int DIRECTIONS=8;
 constexpr int POSES=10;
 constexpr float FPS=12.f;
+constexpr float HERO_SCALE=0.92f; // Reduce both body and equipment by 8%.
 // Game order: down, down-left, left, up-left, up, up-right, right, down-right.
 // Actual art row order: up, up-right, right, down-right, down,
 //                       down-left, left, up-left.
@@ -50,7 +51,14 @@ inline bool draw(SDL_Renderer* renderer,SDL_Texture* baseHero,
     float w=0.f,h=0.f;
     if(!SDL_GetTextureSize(baseHero,&w,&h)||w<=0.f||h<=0.f)return false;
     const SDL_FRect src=source(direction,pose,w,h,false);
-    const SDL_FRect dst{position.x-28.f,position.y-64.f,56.f,78.f};
+    // Scale around the same foot anchor (position.y + 14) so movement,
+    // collision position and equipment alignment remain unchanged.
+    constexpr float footOffset=14.f;
+    const SDL_FRect dst{
+        position.x-28.f*HERO_SCALE,
+        position.y+footOffset-78.f*HERO_SCALE,
+        56.f*HERO_SCALE,78.f*HERO_SCALE
+    };
     // The base is always drawn, independently of the equipped items.
     SDL_RenderTexture(renderer,baseHero,&src,&dst);
     if(wearingArmor && armor){
@@ -65,8 +73,11 @@ inline bool draw(SDL_Renderer* renderer,SDL_Texture* baseHero,
             const SDL_FRect armorSrc=source(direction,armorPose,aw,ah,true);
             // The armor occupies just the torso between neck and waist.
             // Keep it in game-space, not relative to the source image.
-            const SDL_FRect armorDst{position.x-15.f,
-                                    position.y-34.f,30.f,29.f};
+            const SDL_FRect armorDst{
+                position.x-15.f*HERO_SCALE,
+                position.y+footOffset-48.f*HERO_SCALE,
+                30.f*HERO_SCALE,29.f*HERO_SCALE
+            };
             SDL_RenderTexture(renderer,armor,&armorSrc,&armorDst);
         }
     }
