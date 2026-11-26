@@ -533,7 +533,8 @@ void drawFamilySprite(SDL_Renderer* r,const ArtAssets& art,int person,
     if(index<0||index>=int(art.familyFrames.size()))return;
     SDL_Texture* texture=art.familyFrames[size_t(index)];
     if(!texture)return;
-    SDL_FRect destination{float(x-21),float(y-56),42.f,67.f};
+    // Keep the same foot anchor and apparent size as the 0.92-scaled paper doll hero.
+    SDL_FRect destination{float(x)-26.f,float(y)-58.f,52.f,72.f};
     SDL_RenderTexture(r,texture,nullptr,&destination);
 }
 // villager.png top panel: eight character columns, four walking directions,
