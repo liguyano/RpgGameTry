@@ -7,7 +7,7 @@
 namespace hero_anim {
 constexpr int DIRECTIONS=8;
 constexpr int FRAMES=9;
-constexpr float FPS=13.f;
+constexpr float FPS=10.f;
 
 // Original, unresized 9-column x 8-row image. Pixel positions were
 // measured from the source image (1402 x 1122), not guessed via
