@@ -782,7 +782,8 @@ ArtAssets loadArtAssets(SDL_Renderer* renderer){
     result.mother=loadArt(renderer,"mother.bmp");
     result.lily=loadArt(renderer,"lily.bmp");
     loadFamilyFrames(renderer,result);
-    loadHeroFrames(renderer,result);
+    // hero.png is now a five-row transparent cutout sheet rather than a 9x8 full-body atlas.
+    result.heroParts=loadArt(renderer,"hero.png");
     // Per-direction modular bones. leftdwon.png is the uploaded filename;
     // accept corrected spelling if the asset gets renamed later.
     const char* boneFiles[8]={"down.png","leftdwon.png","left.png",
@@ -849,6 +850,7 @@ void destroyArtAssets(ArtAssets& art){
     if(art.goblinAtlas)SDL_DestroyTexture(art.goblinAtlas);
     if(art.swordAtlas)SDL_DestroyTexture(art.swordAtlas);
     if(art.tunicAtlas)SDL_DestroyTexture(art.tunicAtlas);
+    if(art.heroParts)SDL_DestroyTexture(art.heroParts);
     if(art.shopBackground)SDL_DestroyTexture(art.shopBackground);
     for(SDL_Texture* t:art.shopFurniture)if(t)SDL_DestroyTexture(t);
     for(SDL_Texture* t:art.villagerFrames)if(t)SDL_DestroyTexture(t);
