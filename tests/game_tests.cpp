@@ -112,9 +112,13 @@ int main() {
             assert(cell.y+cell.h<=float(hero_anim::GRID_H));
             assert(hero_anim::visualScale(direction)==1.f);
         }
-    // Sword uses a proper 120-degree forward arc, not a circle.
+    // Sword hits only within a shorter 70-degree cone in front of the hero.
     assert(combat::swordHits({0.f,0.f},{1.f,0.f},{40.f,0.f}));
-    assert(combat::swordHits({0.f,0.f},{1.f,0.f},{35.f,30.f}));
+    assert(combat::swordHits({0.f,0.f},{1.f,0.f},{45.f,20.f}));
+    assert(!combat::swordHits({0.f,0.f},{1.f,0.f},{35.f,30.f}));
+    assert(combat::swordHits({0.f,0.f},{1.f,0.f},{60.f,0.f}));
+    assert(!combat::swordHits({0.f,0.f},{1.f,0.f},{61.f,0.f}));
+    assert(!combat::swordHits({0.f,0.f},{1.f,0.f},{0.f,0.f}));
     assert(!combat::swordHits({0.f,0.f},{1.f,0.f},{-40.f,0.f}));
     assert(!combat::swordHits({0.f,0.f},{1.f,0.f},{0.f,45.f}));
     assert(!combat::swordHits({0.f,0.f},{1.f,0.f},{90.f,0.f}));
