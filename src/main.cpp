@@ -301,7 +301,7 @@ int main(int argc,char** argv){
         const auto& rig=art.skeletalAtlases[size_t(rigDirection)];
         const bool rigDrawn=world.skeletalMode && rig.ready;
         const bool dollDrawn=!world.skeletalMode && paper_doll::draw(
-            renderer,art.heroParts,art.heroBase,art.tunicAtlas,heroScreen,
+            renderer,art.heroParts,art.tunicAtlas,heroScreen,
             world.hero.facing,world.hero.moving,world.hero.animationTime,
             world.equipped[3]==18);
         if(rigDrawn){
@@ -317,26 +317,7 @@ int main(int argc,char** argv){
                     drawKnight(renderer,heroScreen,world.hero.facing,world.hero.slashTimer,world.hero.hurtTimer>0);
                 else drawYoungHero(renderer,heroScreen);
             }
-            // The armor layer is independent of experimental skeletal rendering.
-            // Overlay a matching torso on the existing 8-facing animated hero.
-            if(world.equipped[3]==18 && art.tunicAtlas){
-                float atlasW=0.f,atlasH=0.f;
-                if(SDL_GetTextureSize(art.tunicAtlas,&atlasW,&atlasH) &&
-                   atlasW>0.f && atlasH>0.f){
-                    // 2x4 sheet: up, rightup, right, rightdown,
-                    // down, leftdown, left, leftup.
-                    const int cell=(rigDirection+4)%8;
-                    const float cw=atlasW/4.f,ch=atlasH/2.f;
-                    const SDL_FRect src{float(cell%4)*cw+cw*.16f,
-                                        float(cell/4)*ch+ch*.13f,
-                                        cw*.68f,ch*.70f};
-                    const float bob=world.hero.moving?
-                        std::abs(std::sin(world.hero.animationTime*8.04f))*.9f:0.f;
-                    const SDL_FRect dst{heroScreen.x-12.f,
-                                        heroScreen.y-24.f-bob,24.f,23.f};
-                    SDL_RenderTexture(renderer,art.tunicAtlas,&src,&dst);
-                }
-            }
+
         }
         if(world.scene==Scene::OUTSKIRTS && world.story>=9)
             drawSwordSwing(renderer,art,heroScreen,
