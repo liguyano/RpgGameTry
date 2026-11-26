@@ -1,3 +1,25 @@
+## Experimental eight-direction skeletal character (F4)
+
+Eight modular spritesheets are loaded from `assets/hero_bones/` at launch.
+Press **F4** to toggle the experimental character rig; press **F4** again
+to return to the existing original nine-frame sprite animation. This is
+a reversible visual preview and **does not change combat hitboxes, maps,
+equipment stats or save progression**. The rig animates head/torso, shoulders,
+elbows, hips, knees, hands and boots; the sword hand adds an attack pose.
+All eight directions are independently drawn from the uploaded PNG files.
+
+The loader finds isolated alpha islands and groups them into part rows
+instead of using fixed coordinates. It supports both the 14-part and
+20+-part generated sheets, and accepts the uploaded misspelling
+`leftdwon.png` as well as `leftdown.png`. If a sheet is unavailable or
+cannot be interpreted, that direction falls back to the normal hero PNG.
+**F3** additionally displays approximate rig anchor points.
+
+This is a prototype, not a production-ready animation rig: the generated
+parts differ in layout and perspective, and the joint anchors/occlusion
+need hand tuning for each direction. An 8-direction playtest is needed
+before switching this on by default or binding armor overlays.
+
 ## Nine-frame hero sprite sheet (original proportions)
 
 Use the **original 9-column × 8-row hero artwork** without the prior
