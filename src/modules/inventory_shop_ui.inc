@@ -36,6 +36,8 @@ void clickInventory(World& world,float x,float y){
     if(x>=bagX&&x<bagX+8*bagStep&&y>=bagY&&y<bagY+3*bagStep){
         const int col=int((x-bagX)/bagStep),row=int((y-bagY)/bagStep);
         world.inventorySelection=row*8+col;
+        // Clicking a backpack item equips or uses it immediately.
+        useInventoryItem(world,world.inventorySelection);
         return;
     }
     // Click equipment slots to unequip into the first empty backpack cell.
@@ -198,7 +200,7 @@ void drawInventory(SDL_Renderer* renderer,const World& w,const ArtAssets& art){
     uiBox(renderer,78.f,416.f,464.f,86.f);
     const int selected=w.bag[size_t(w.inventorySelection)];
     fillText(renderer,itemView(selected).name,94,434,3,243,216,151);
-    fillText(renderer,selected?(itemView(selected).consumable?"E: USE ITEM":"E: EQUIP ITEM"):
+    fillText(renderer,selected?(itemView(selected).consumable?"CLICK / E: USE":"CLICK / E: EQUIP"):
              "EMPTY SLOT",94,464,2,221,206,180);
     fillText(renderer,"GOLD: "+std::to_string(w.gold),645,393,2,241,203,114);
     fillText(renderer,"ATK: "+std::to_string(equipment::attack(w.equipped)),
