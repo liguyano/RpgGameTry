@@ -196,6 +196,7 @@ struct ArtAssets {
     SDL_Texture* swordAtlas=nullptr;
     SDL_Texture* tunicAtlas=nullptr;
     SDL_Texture* heroParts=nullptr;
+    SDL_Texture* heroBase=nullptr;
     std::array<SDL_Texture*,shop::furniture.size()> shopFurniture{};
     std::array<SDL_Texture*,8*4*4> villagerFrames{};
 };
