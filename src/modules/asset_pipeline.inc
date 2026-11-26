@@ -773,6 +773,7 @@ ArtAssets loadArtAssets(SDL_Renderer* renderer){
     result.itemsAtlas=loadArt(renderer,"items.png");
     result.goblinAtlas=loadCombatAtlas(renderer,"goblin.png");
     result.swordAtlas=loadCombatAtlas(renderer,"sword_attack.png");
+    result.tunicAtlas=loadCombatAtlas(renderer,"torso_tunic.png");
     result.shopBackground=loadArt(renderer,"shopback.png");
     loadShopFurniture(renderer,result);
     result.fountainBase=loadArt(renderer,"fountain_base.png");
@@ -815,6 +816,7 @@ void destroyArtAssets(ArtAssets& art){
     if(art.itemsAtlas)SDL_DestroyTexture(art.itemsAtlas);
     if(art.goblinAtlas)SDL_DestroyTexture(art.goblinAtlas);
     if(art.swordAtlas)SDL_DestroyTexture(art.swordAtlas);
+    if(art.tunicAtlas)SDL_DestroyTexture(art.tunicAtlas);
     if(art.shopBackground)SDL_DestroyTexture(art.shopBackground);
     for(SDL_Texture* t:art.shopFurniture)if(t)SDL_DestroyTexture(t);
     for(SDL_Texture* t:art.villagerFrames)if(t)SDL_DestroyTexture(t);
