@@ -129,24 +129,33 @@ void update(World& w,const bool* keys,float dt){
         }
     }
     if(w.story<9 || w.scene!=Scene::OUTSKIRTS)return;
-    for(auto& e:w.enemies){
+    // Each goblin has a persistent role/slot relative to the hero, so the
+    // pack separates into a front threat, flankers and rear harassers.
+    // Only a couple attack at once; others circle for an opening.
+    int preparingCount=0;
+    for(const auto& enemy:w.enemies)
+        if(enemy.hp>0 && enemy.preparing)++preparingCount;
+    for(size_t i=0;i<w.enemies.size();++i){
+        Enemy& e=w.enemies[i];
         if(e.hp<=0)continue;
         e.wobble+=dt*5.f;
         e.attackTimer=std::max(0.f,e.attackTimer-dt);
         e.stagger=std::max(0.f,e.stagger-dt);
         e.flash=std::max(0.f,e.flash-dt);
         e.floatDamage=std::max(0.f,e.floatDamage-dt);
-        const Vec2 chase=combat::toward(e.pos,w.hero.pos);
+        const Vec2 toHero=combat::toward(e.pos,w.hero.pos);
         const float distance=std::sqrt(game::distanceSquared(e.pos,w.hero.pos));
-        if(distance>1.f)e.facing=chase;
+        if(distance>1.f)e.facing=toHero;
         if(e.stagger>0.f)continue;
         if(e.preparing){
             e.windup-=dt;
             if(e.windup<=0.f){
                 e.preparing=false;
-                e.attackTimer=combat::ENEMY_RECOVERY;
-                // Attack commits at the end of the visible windup: dodging
-                // outside this radius avoids damage without an arbitrary roll.
+                --preparingCount;
+                e.attackTimer=combat::ENEMY_RECOVERY+
+                              float(i%3)*.19f;
+                // The player can still evade the committed swing by moving
+                // out of range during its visible windup.
                 if(distance<combat::ENEMY_ATTACK_RANGE && w.hero.hurtTimer<=0.f){
                     w.hero.hp=game::damage(w.hero.hp,equipment::hitDamage(
                         equipment::ENEMY_ATTACK,equipment::defense(w.equipped)));
@@ -156,14 +165,40 @@ void update(World& w,const bool* keys,float dt){
             }
             continue;
         }
-        if(distance<combat::ENEMY_ATTACK_RANGE && e.attackTimer<=0.f){
+        if(enemy_ai::canWindup(distance,e.attackTimer,false,preparingCount)){
             e.preparing=true;
             e.windup=combat::ENEMY_WINDUP;
-        }else if(distance<combat::ENEMY_NOTICE_DISTANCE &&
-                 distance>combat::ENEMY_ATTACK_RANGE-5.f){
-            east_map::move(e.pos,{chase.x*ENEMY_SPEED,chase.y*ENEMY_SPEED},
-                           dt,10.f);
+            ++preparingCount;
+            continue;
         }
+        if(distance>=combat::ENEMY_NOTICE_DISTANCE)continue;
+        // Each role charges briefly at a different time, then returns to
+        // its sector. This creates pressure without one solid enemy pile.
+        const float phase=std::fmod(w.time+float(i)*.58f,3.8f);
+        const bool engage=phase<1.4f && e.attackTimer<.44f &&
+                          preparingCount<enemy_ai::MAX_ATTACKERS;
+        const Vec2 heading=enemy_ai::steer(w.enemies,i,w.hero.pos,
+                                          w.hero.facing,engage);
+        if(enemy_ai::length(heading)<.05f)continue;
+        const float speed=ENEMY_SPEED*enemy_ai::speedFactor(i);
+        // Test a few small steering variations if a rock blocks the direct
+        // route. Use the best valid advance rather than getting stuck.
+        const Vec2 sideways=enemy_ai::perpendicular(heading);
+        const Vec2 candidates[]{heading,
+            enemy_ai::normalizedOr(enemy_ai::add(heading,
+                                                enemy_ai::mul(sideways,.95f))),
+            enemy_ai::normalizedOr(enemy_ai::sub(heading,
+                                                enemy_ai::mul(sideways,.95f)))};
+        Vec2 chosen=e.pos;
+        float bestScore=-.01f;
+        for(const Vec2 candidate:candidates){
+            Vec2 destination=e.pos;
+            east_map::move(destination,{candidate.x*speed,candidate.y*speed},
+                           dt,10.f);
+            const Vec2 actual=enemy_ai::sub(destination,e.pos);
+            const float score=enemy_ai::dot(actual,heading);
+            if(score>bestScore){bestScore=score;chosen=destination;}
+        }
+        e.pos=chosen;
     }
 }
-
