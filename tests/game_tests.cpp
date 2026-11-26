@@ -235,6 +235,15 @@ int main() {
     assert(equipment::addToBag(bag,12));
     assert(!equipment::addToBag(bag,0));
     assert(equipment::item(17).attack==3 && equipment::item(18).defense==1);
+    assert(std::string(equipment::item(17).name)=="FATHER'S CHIPPED SWORD");
+    assert(equipment::item(17).slot==0);
+    assert(equipment::item(17).attack<equipment::item(1).attack);
+    // The one-time starter sword can be equipped without occupying bag space.
+    std::array<int,24> freshBag{};
+    std::array<int,6> freshEquipment{};
+    freshEquipment[0]=17;
+    assert(equipment::attack(freshEquipment)==equipment::BASE_ATTACK+3);
+    assert(freshBag[0]==0);
     // General store entrance, walkable aisle, walls, and furniture collisions.
     assert(!shop::collides(shop::ARRIVAL));
     assert(shop::nearDoor(shop::ENTRANCE));
