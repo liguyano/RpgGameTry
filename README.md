@@ -1,16 +1,23 @@
-## New armor-ready base hero atlas
+## Nine-frame hero sprite sheet (original proportions)
 
-A new **scarf-free, armor-free** base character spritesheet has been prepared
-as `hero.png`: 1280×1024 RGBA, a regular 10-column × 8-row grid of 128×128
-cells. Original artwork had only nine columns; the tenth repeats the first
-pose as a loop-closing frame. Rows remain South, Southwest, West, Northwest,
-North, Northeast, East, Southeast.
+Use the **original 9-column × 8-row hero artwork** without the prior
+10-frame reassembly. The source PNG is 1402×1122 pixels and includes
+9 distinct walking poses for each of the 8 facing directions. Original
+row order is South, Southwest, West, Northwest, North, Northeast, East,
+Southeast.
 
-When the replacement PNG is installed at `assets/hero.png`, the loader
-recognizes the exact dimensions, preserves transparency, and slices all 80
-cells directly. Older irregularly spaced hero.png spritesheets still work
-using the previous measured crop paths; the old direction-specific scale
-compensation is only applied to those older art assets.
+The animation uses `hero_anim::FRAMES=9` and loops directly from pose 9
+back to pose 1. `src/hero_animation.h` contains measured per-column and
+per-row boundaries for the original irregular arrangement, so cells are
+not blindly divided by image width or height. `asset_pipeline.inc` puts
+each sprite onto a consistently aligned transparent canvas, removes
+the neutral near-white background matte at runtime, and keeps the original
+drawing proportions. It also supports a regular alpha PNG of 9×8 cells,
+each exactly 128×128 pixels (1152×1024 total), for future equipment layers.
+
+**To activate:** replace `assets/hero.png` with the untouched 1402×1122
+9-frame source image (or identical-dimension version with transparency).
+Do not use the previously assembled `hero_8x10_fixed.png`.
 
 ## Tactical goblin AI (flanking and attack rotation)
 
