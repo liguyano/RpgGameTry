@@ -34,6 +34,7 @@ constexpr int MAX_HEALTH=100;
 // The game still uses a single translation unit to retain internal helpers
 // and avoid linkage changes while its subsystems are being modularized.
 // These fragments are ordered by the dependencies of the original code.
+#include "modules/skeletal_hero.inc"
 #include "modules/world_state.inc"
 #include "modules/asset_pipeline.inc"
 #include "modules/world_renderer.inc"
@@ -155,6 +156,7 @@ int main(int argc,char** argv){
                     noticeStory=-1; // reset also redraws if restarted at the same chapter
                 }
                 if(ev.key.key==SDLK_F3)world.showCollision=!world.showCollision;
+                if(ev.key.key==SDLK_F4)world.skeletalMode=!world.skeletalMode;
                 if(ev.key.key==SDLK_F1)world.noticeAge=0.f;
                 if(ev.key.key==SDLK_E || (ev.key.key==SDLK_SPACE && !world.dialogue.empty())){
                     if(!world.dialogue.empty() &&
@@ -293,8 +295,16 @@ int main(int argc,char** argv){
             Vec2 camera=village::camera(world.hero.pos);
             heroScreen.x-=camera.x;heroScreen.y-=camera.y;
         }
-        if(!drawAnimatedHero(renderer,art,heroScreen,world.hero.facing,
-                             world.hero.moving,world.hero.animationTime)){
+        const int rigDirection=hero_anim::direction(world.hero.facing);
+        const auto& rig=art.skeletalAtlases[size_t(rigDirection)];
+        const bool rigDrawn=world.skeletalMode && rig.ready;
+        if(rigDrawn){
+            skeletal::draw(renderer,rig,heroScreen,world.hero.moving,
+                           world.hero.animationTime,world.hero.slashTimer,
+                           world.showCollision);
+        }
+        if(!rigDrawn && !drawAnimatedHero(renderer,art,heroScreen,world.hero.facing,
+                                          world.hero.moving,world.hero.animationTime)){
             if(world.story>=9)
                 drawKnight(renderer,heroScreen,world.hero.facing,world.hero.slashTimer,world.hero.hurtTimer>0);
             else drawYoungHero(renderer,heroScreen);
@@ -310,6 +320,9 @@ int main(int argc,char** argv){
             drawAnimatedFountain(renderer,art,camera,world.hero.pos.y,world.time,true);
             drawVillagePopulation(renderer,art,world,camera,true);
         }
+        fillText(renderer,world.skeletalMode?"F4 BONES ON":"F4 BONES OFF",
+                 12,HEIGHT-22,2,world.skeletalMode?130:201,
+                 world.skeletalMode?239:202,165);
         if(world.story<9)drawInteractPrompt(renderer,world);
         else drawHud(renderer,world);
         drawStoryNotice(renderer,storyNotice,world.noticeAge);
