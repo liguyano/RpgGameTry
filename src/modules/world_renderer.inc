@@ -277,7 +277,6 @@ void drawSwordSwing(SDL_Renderer* r,const ArtAssets& art,
     // sword sprite sheet is missing or has a different animation layout.
     SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_BLEND);
     color(r,249,218,137,220);
-    const float phase=1.f-remaining/combat::SWING_DURATION;
     for(int i=0;i<20;i++){
         const float offset=(-.95f+1.9f*float(i)/19.f)+angle;
         const float range=43.f+float(i%3);
