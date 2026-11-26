@@ -270,7 +270,7 @@ void drawCombatGoblin(SDL_Renderer* r,const ArtAssets& art,const Enemy& e){
 }
 // Render an animated sword sweep in the facing direction, after the hero.
 void drawSwordSwing(SDL_Renderer* r,const ArtAssets& art,
-                    Vec2 hero,Vec2 facing,float remaining){
+                    Vec2 hero,Vec2 facing,float remaining,int weaponId){
     if(remaining<=0.f)return;
     const float angle=std::atan2(facing.y,facing.x);
     // A lightweight procedural slash is always visible even if the supplied
@@ -293,9 +293,11 @@ void drawSwordSwing(SDL_Renderer* r,const ArtAssets& art,
     // The source's right-facing sweep is rotated toward the attack vector.
     const SDL_FRect dst{hero.x+facing.x*28.f-29.f,
                         hero.y+facing.y*28.f-45.f,58.f,58.f};
+    if(weaponId==17)SDL_SetTextureColorMod(art.swordAtlas,170,129,94);
     SDL_RenderTextureRotated(r,art.swordAtlas,&src,&dst,
                              double(angle*180.f/combat::PI),
                              nullptr,SDL_FLIP_NONE);
+    if(weaponId==17)SDL_SetTextureColorMod(art.swordAtlas,255,255,255);
 }
 // A few small translucent pixels near the boots. Particles are spawned in
 // world coordinates, then shifted with the village camera during rendering.

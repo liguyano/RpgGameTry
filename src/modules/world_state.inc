@@ -152,6 +152,7 @@ struct World {
     int shopSelection=0;
     std::string shopFeedback;
     int inventorySelection=0;
+    bool fatherSwordReceived=false; // father gives his old sword only once
     // A new adventurer owns ordinary food, not a collection of rare gear.
     std::array<int,24> bag{{15,16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}};
     std::array<int,6> equipped{{0,0,0,18,0,0}}; // simple tunic: DEF +1

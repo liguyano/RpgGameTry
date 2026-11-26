@@ -75,9 +75,13 @@ void itemIcon(SDL_Renderer* renderer,const ArtAssets& art,int id,float x,float y
     // Crop well inside each tile to exclude neighbouring art.
     constexpr float centersX[6]={141.f,365.f,586.f,810.f,1037.f,1253.f};
     constexpr float centersY[3]={109.f,278.f,447.f};
+    // The starter blade shares the iron-sword atlas cell, but its faded
+    // rusty tint keeps it visually distinct without a new texture asset.
+    if(id==17)SDL_SetTextureColorMod(art.itemsAtlas,170,130,94);
     atlasImage(renderer,art.itemsAtlas,
                centersX[info.iconColumn]-77.f,centersY[info.iconRow]-73.f,154.f,146.f,
                x,y,size,size,1408.f,1024.f);
+    if(id==17)SDL_SetTextureColorMod(art.itemsAtlas,255,255,255);
 }
 void uiBox(SDL_Renderer* renderer,float x,float y,float w,float h){
     SDL_SetRenderDrawBlendMode(renderer,SDL_BLENDMODE_BLEND);

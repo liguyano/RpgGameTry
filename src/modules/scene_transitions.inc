@@ -92,12 +92,26 @@ void interact(World& w){
     if(w.story==0 && withinRange(w.hero.pos,w.family[0].position,72)){
         w.story=1;showDialogue(w,"MOTHER","GOOD MORNING, ELIAN!\nYOUR FATHER HAS SOMETHING TO SAY.");return;
     }
-    if(w.story==1 && withinRange(w.hero.pos,w.family[1].position,72)){
-        if(equipment::addToBag(w.bag,17)){
-            w.story=2;
-            showDialogue(w,"FATHER","TAKE THIS WORN SWORD. IT IS NOT MUCH, BUT IT MAY HELP.\nSEE LILY BEFORE LEAVING.");
+    // Father's old sword is a one-time gift, even if the player left home
+    // before doing the family tutorial and returned much later.
+    if(w.scene==Scene::HOME &&
+       withinRange(w.hero.pos,w.family[1].position,72) &&
+       !w.fatherSwordReceived){
+        bool received=false;
+        if(w.equipped[0]==0){
+            w.equipped[0]=17; // start wearing the weak sword immediately
+            received=true;
         }else{
-            showDialogue(w,"FATHER","YOUR BAG IS FULL. MAKE ROOM FOR THE OLD SWORD.");
+            received=equipment::addToBag(w.bag,17);
+        }
+        if(received){
+            w.fatherSwordReceived=true;
+            if(w.story==1)w.story=2;
+            showDialogue(w,"FATHER",
+                "THIS WAS MY FIRST BLADE. ITS EDGE IS CHIPPED, BUT IT STILL WORKS.\n"
+                "TAKE IT WITH YOU. FATHER'S CHIPPED SWORD - ATK +3.");
+        }else{
+            showDialogue(w,"FATHER","YOUR PACK IS FULL. MAKE SOME ROOM FOR MY OLD SWORD.");
         }
         return;
     }

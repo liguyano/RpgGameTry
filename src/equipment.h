@@ -31,7 +31,7 @@ inline constexpr std::array<Item,19> ITEMS{{
     {"HERBS",1,2,-1,0,0,15,true},
     {"BREAD",2,2,-1,0,0,12,true},
     {"APPLE",3,2,-1,0,0,8,true},
-    {"WORN SWORD",0,0,0,3,0,0,false},  // reuses the sword icon
+    {"FATHER'S CHIPPED SWORD",0,0,0,3,0,0,false}, // weathered starter blade
     {"PLAIN TUNIC",0,1,3,0,1,0,false} // reuses armor icon
 }};
 inline constexpr const Item& item(int id){
