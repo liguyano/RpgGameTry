@@ -94,6 +94,17 @@ int main() {
             assert(cell.x+cell.w<=1.f);
             assert(cell.y+cell.h<=1.f);
         }
+    // New base hero PNG has a strict 10x8 grid and no black/white matte.
+    assert(hero_anim::GRID_W==1280 && hero_anim::GRID_H==1024);
+    for(int direction=0;direction<hero_anim::DIRECTIONS;direction++)
+        for(int pose=0;pose<hero_anim::FRAMES;pose++){
+            const auto cell=hero_anim::gridCrop(direction,pose);
+            assert(cell.x==float(pose*128));
+            assert(cell.y==float(direction*128));
+            assert(cell.w==128.f && cell.h==128.f);
+            assert(cell.x+cell.w<=float(hero_anim::GRID_W));
+            assert(cell.y+cell.h<=float(hero_anim::GRID_H));
+        }
     // Rendering compensation for the two oversized hero animation rows.
     assert(hero_anim::visualScale(0)==0.88f);
     assert(hero_anim::visualScale(1)==0.95f);
