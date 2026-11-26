@@ -784,6 +784,7 @@ ArtAssets loadArtAssets(SDL_Renderer* renderer){
     loadFamilyFrames(renderer,result);
     // hero.png is now a five-row transparent cutout sheet rather than a 9x8 full-body atlas.
     result.heroParts=loadArt(renderer,"hero.png");
+    if(result.heroParts)SDL_SetTextureBlendMode(result.heroParts,SDL_BLENDMODE_BLEND);
     // Per-direction modular bones. leftdwon.png is the uploaded filename;
     // accept corrected spelling if the asset gets renamed later.
     const char* boneFiles[8]={"down.png","leftdwon.png","left.png",
