@@ -192,7 +192,7 @@ int main(int argc,char** argv){
                 const bool talking=world.speaker==c.name && !world.dialogue.empty();
                 const int facing=facingSpriteDirection(motion.facing);
                 const int state=talking?5:(motion.moving?facing:4);
-                const int frame=motion.moving?int(motion.walkingTime*4.8f)%3:
+                const int frame=motion.moving?int(motion.walkingTime*6.f)%3:
                     (talking?int(world.time*3.f)%3:int(world.time*1.5f+float(i))%3);
                 if(art.familyFrames[(sheetPerson*FAMILY_STATES+state)*FAMILY_POSES+frame])
                     drawFamilySprite(renderer,art,sheetPerson,int(c.p.x),int(c.p.y),state,frame);
