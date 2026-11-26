@@ -145,7 +145,7 @@ struct World {
     bool justArrived=true;
     bool largeVillage=false;
     bool showCollision=false;
-    bool skeletalMode=true; // F4 switches bone rendering; enabled for equipment preview
+    bool skeletalMode=false; // Keep original hero animation by default; F4 previews experimental bones
     float noticeAge=0.f; // real-time fade clock for chapter and control tips
     bool inventoryOpen=false;
     bool shopMenu=false;
