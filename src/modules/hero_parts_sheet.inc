@@ -51,13 +51,13 @@ inline bool draw(SDL_Renderer* r,SDL_Texture* sheet,game::Vec2 position,
     const float feet=position.y+12.f-bob;
     const float x=position.x;
     // Near/far limb ordering keeps the front arm in front of worn armor.
-    part(r,sheet,direction,pose,3,x+10.f,feet-42.f,10.f,24.f,gait*11.f);
-    part(r,sheet,direction,pose,4,x,feet-29.f,26.f,34.f);
-    part(r,sheet,direction,pose,1,x,feet-53.f,24.f,29.f);
+    part(r,sheet,direction,pose,3,x+9.f,feet-45.f,11.f,22.f,gait*8.f);
+    part(r,sheet,direction,pose,4,x,feet-28.f,24.f,32.f);
+    part(r,sheet,direction,pose,1,x,feet-52.f,22.f,28.f);
     if(wearingTunic)
-        armor(r,tunic,direction,x,feet-53.f,25.f,29.f);
-    part(r,sheet,direction,pose,0,x,feet-80.f,37.f,39.f);
-    part(r,sheet,direction,pose,2,x-10.f,feet-42.f,10.f,24.f,-gait*11.f);
+        armor(r,tunic,direction,x,feet-52.f,22.f,28.f);
+    part(r,sheet,direction,pose,0,x,feet-77.f,31.f,34.f);
+    part(r,sheet,direction,pose,2,x-9.f,feet-45.f,11.f,22.f,-gait*8.f);
     return true;
 }
 } // namespace hero_parts
