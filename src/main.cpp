@@ -301,7 +301,7 @@ int main(int argc,char** argv){
         const auto& rig=art.skeletalAtlases[size_t(rigDirection)];
         const bool rigDrawn=world.skeletalMode && rig.ready;
         const bool dollDrawn=!world.skeletalMode && paper_doll::draw(
-            renderer,art.heroParts,art.tunicAtlas,heroScreen,
+            renderer,art.heroParts,art.heroBase,art.tunicAtlas,heroScreen,
             world.hero.facing,world.hero.moving,world.hero.animationTime,
             world.equipped[3]==18);
         if(rigDrawn){
