@@ -73,21 +73,25 @@ inline game::Vec2 separation(const EnemyList& enemies,std::size_t index){
 }
 template<class EnemyList>
 inline game::Vec2 steer(const EnemyList& enemies,std::size_t index,
-                        game::Vec2 hero,game::Vec2 facing){
+                        game::Vec2 hero,game::Vec2 facing,bool engage=false){
     const auto& e=enemies[index];
     const auto offset=sub(e.pos,hero);
     const float distance=length(offset);
     const game::Vec2 target=slot(hero,facing,index);
-    const game::Vec2 toSlot=sub(target,e.pos);
+    const game::Vec2 actualTarget=engage
+        ? add(hero,mul(normalizedOr(sub(target,hero)),27.f))
+        : target;
+    const game::Vec2 toSlot=sub(actualTarget,e.pos);
     // Stay out of the player's center even when the target slot is beyond
     // the player. Back up instead of making everyone rush to the same pixel.
     game::Vec2 avoidCenter{0.f,0.f};
-    if(distance<49.f)
-        avoidCenter=mul(normalizedOr(offset),(.8f+(49.f-distance)*.07f));
+    const float safeDistance=engage?22.f:49.f;
+    if(distance<safeDistance)
+        avoidCenter=mul(normalizedOr(offset),(.8f+(safeDistance-distance)*.07f));
     const game::Vec2 avoidCrowd=mul(separation(enemies,index),3.1f);
     const game::Vec2 heading=add(add(toSlot,avoidCrowd),mul(avoidCenter,28.f));
     if(length(toSlot)<9.f && length(avoidCrowd)<.04f &&
-       distance>=49.f)return {0.f,0.f};
+       distance>=safeDistance)return {0.f,0.f};
     return normalizedOr(heading,{0.f,0.f});
 }
 inline float speedFactor(std::size_t i){
@@ -100,10 +104,10 @@ inline float speedFactor(std::size_t i){
     return 1.f;
 }
 inline bool canWindup(float distance,float cooldown,bool staggered,
-                      int currentlyPreparing,std::size_t i){
+                      int currentlyPreparing){
     // Opponents only attack at melee distance, and only up to two at once.
     // A short role-dependent cooldown ensures attackers rotate naturally.
     return distance<37.f && cooldown<=0.f && !staggered &&
-           currentlyPreparing<MAX_ATTACKERS && role(i)!=Role::Harasser;
+           currentlyPreparing<MAX_ATTACKERS;
 }
 } // namespace enemy_ai
