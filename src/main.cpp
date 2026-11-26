@@ -326,8 +326,8 @@ int main(int argc,char** argv){
                                         cw*.68f,ch*.70f};
                     const float bob=world.hero.moving?
                         std::abs(std::sin(world.hero.animationTime*8.04f))*.9f:0.f;
-                    const SDL_FRect dst{heroScreen.x-16.f,
-                                        heroScreen.y-39.f-bob,32.f,34.f};
+                    const SDL_FRect dst{heroScreen.x-12.f,
+                                        heroScreen.y-24.f-bob,24.f,23.f};
                     SDL_RenderTexture(renderer,art.tunicAtlas,&src,&dst);
                 }
             }
