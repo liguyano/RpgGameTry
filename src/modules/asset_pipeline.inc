@@ -101,6 +101,36 @@ void loadHeroFrames(SDL_Renderer* r,ArtAssets& art){
         std::cerr<<"hero.png loading failed: "<<SDL_GetError()<<"\n";
         return;
     }
+    // The new armor-ready sprite sheet already contains true alpha and
+    // exact 128px cells. Never apply white-matte flood filling to it.
+    if(sheet->w==hero_anim::GRID_W && sheet->h==hero_anim::GRID_H){
+        int loaded=0;
+        for(int row=0;row<hero_anim::DIRECTIONS;row++){
+            for(int frame=0;frame<hero_anim::FRAMES;frame++){
+                const auto crop=hero_anim::gridCrop(row,frame);
+                const SDL_Rect src{int(crop.x),int(crop.y),
+                                   int(crop.w),int(crop.h)};
+                SDL_Surface* cell=SDL_CreateSurface(hero_anim::GRID_CELL,
+                                                     hero_anim::GRID_CELL,
+                                                     SDL_PIXELFORMAT_RGBA32);
+                if(!cell)continue;
+                SDL_FillSurfaceRect(cell,nullptr,0);
+                if(SDL_BlitSurface(sheet,&src,cell,nullptr)){
+                    SDL_Texture* texture=SDL_CreateTextureFromSurface(r,cell);
+                    if(texture){
+                        SDL_SetTextureScaleMode(texture,SDL_SCALEMODE_NEAREST);
+                        SDL_SetTextureBlendMode(texture,SDL_BLENDMODE_BLEND);
+                        art.heroFrames[size_t(row)*hero_anim::FRAMES+size_t(frame)]=texture;
+                        ++loaded;
+                    }
+                }
+                SDL_DestroySurface(cell);
+            }
+        }
+        SDL_DestroySurface(sheet);
+        std::cerr<<"Hero normalized transparent 8x10 atlas: "<<loaded<<"/80 loaded\\n";
+        return;
+    }
     const int canvasW=std::max(1,int(std::round(hero_anim::CANVAS_W*
                                          float(sheet->w)/hero_anim::SHEET_W)));
     const int canvasH=std::max(1,int(std::round(hero_anim::CANVAS_H*
@@ -199,7 +229,11 @@ bool drawAnimatedHero(SDL_Renderer* r,const ArtAssets& art,
     // original art. Scale them around the same foot anchor as all other
     // directions; don't change the player's collision/body position.
     constexpr float width=52.f,height=78.f;
-    const float scale=hero_anim::visualScale(direction);
+    float sourceW=0.f,sourceH=0.f;
+    SDL_GetTextureSize(texture,&sourceW,&sourceH);
+    const bool gridAtlas=std::abs(sourceW-hero_anim::GRID_CELL)<.5f &&
+                         std::abs(sourceH-hero_anim::GRID_CELL)<.5f;
+    const float scale=gridAtlas?1.f:hero_anim::visualScale(direction);
     const float bottom=position.y+14.f;
     const float w=width*scale,h=height*scale;
     const SDL_FRect dst{position.x-w*.5f,bottom-h,w,h};
