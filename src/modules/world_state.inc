@@ -145,7 +145,7 @@ struct World {
     bool justArrived=true;
     bool largeVillage=false;
     bool showCollision=false;
-    bool skeletalMode=false; // F4 switches the experimental cutout rig on/off
+    bool skeletalMode=true; // F4 switches bone rendering; enabled for equipment preview
     float noticeAge=0.f; // real-time fade clock for chapter and control tips
     bool inventoryOpen=false;
     bool shopMenu=false;
@@ -194,6 +194,7 @@ struct ArtAssets {
     SDL_Texture* shopBackground=nullptr;
     SDL_Texture* goblinAtlas=nullptr;
     SDL_Texture* swordAtlas=nullptr;
+    SDL_Texture* tunicAtlas=nullptr;
     std::array<SDL_Texture*,shop::furniture.size()> shopFurniture{};
     std::array<SDL_Texture*,8*4*4> villagerFrames{};
 };
